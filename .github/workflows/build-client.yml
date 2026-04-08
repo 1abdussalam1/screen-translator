@@ -1,0 +1,80 @@
+name: Build Windows Client
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd client
+          pip install pyinstaller
+          pip install PyQt6 mss pytesseract Pillow httpx qasync
+
+      - name: Build with PyInstaller
+        run: |
+          cd client
+          pyinstaller `
+            --name ScreenTranslator `
+            --windowed `
+            --onedir `
+            --clean `
+            --hidden-import PyQt6.QtCore `
+            --hidden-import PyQt6.QtGui `
+            --hidden-import PyQt6.QtWidgets `
+            --hidden-import qasync `
+            --hidden-import mss `
+            --hidden-import PIL `
+            --hidden-import httpx `
+            --hidden-import sqlite3 `
+            src/main.py
+
+      - name: Create ZIP
+        run: |
+          cd client/dist
+          Compress-Archive -Path ScreenTranslator -DestinationPath ScreenTranslator-Windows.zip
+
+      - name: Get version
+        id: version
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            echo "VERSION=${{ github.ref_name }}" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "VERSION=v1.0.0-dev" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: "Screen Translator ${{ steps.version.outputs.VERSION }}"
+          body: |
+            ## تحميل التطبيق
+            
+            حمّل ملف `ScreenTranslator-Windows.zip`، فك الضغط، وشغّل `ScreenTranslator.exe`
+            
+            ### الإعداد
+            1. شغّل البرنامج — يظهر في System Tray
+            2. انقر يمين → إعدادات
+            3. أدخل رابط السيرفر + API Key
+            4. اسحب المربع الأخضر فوق النص
+          files: |
+            client/dist/ScreenTranslator-Windows.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
