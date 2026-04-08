@@ -10,6 +10,7 @@ class TranslateRequest(BaseModel):
     text: str = Field(..., max_length=5000)
     source_language: str = Field(default="auto")
     target_language: str = Field(default="ar")
+    model: str | None = Field(default=None)  # optional: override server model
 
 
 class TranslateResponse(BaseModel):

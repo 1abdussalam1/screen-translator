@@ -101,6 +101,18 @@ class SettingsDialog(QDialog):
         self._conn_status_label.setWordWrap(True)
         layout.addRow('الحالة:', self._conn_status_label)
 
+        # Model selector
+        self._model_combo = QComboBox()
+        self._model_combo.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        current_model = self._config.get('ollama_model', '')
+        if current_model:
+            self._model_combo.addItem(current_model)
+        layout.addRow('نموذج الترجمة:', self._model_combo)
+
+        fetch_btn = QPushButton('تحديث قائمة النماذج')
+        fetch_btn.clicked.connect(self._fetch_models)
+        layout.addRow('', fetch_btn)
+
         return widget
 
     # ------------------------------------------------------------------ #
@@ -384,11 +396,35 @@ class SettingsDialog(QDialog):
             self._conn_status_label.setStyleSheet('color: red;')
             self._conn_status_label.setText(f'✗ خطأ: {e}')
 
+    def _fetch_models(self) -> None:
+        """Fetch available Ollama models from server."""
+        if self._api_client is None:
+            return
+        self._api_client.server_url = self._server_url_edit.text().rstrip('/')
+        try:
+            import httpx
+            url = f"{self._api_client.server_url}/api/v1/models"
+            resp = httpx.get(url, timeout=10)
+            data = resp.json()
+            models = data.get('models', [])
+            self._model_combo.clear()
+            for m in models:
+                self._model_combo.addItem(m)
+            current = data.get('current_model', '')
+            idx = self._model_combo.findText(current)
+            if idx >= 0:
+                self._model_combo.setCurrentIndex(idx)
+        except Exception as e:
+            self._model_combo.clear()
+            self._model_combo.addItem(f'خطأ: {e}')
+
     def _on_accept(self) -> None:
         """Collect all settings and store in _config, then accept."""
         # Connection
         self._config['server_url'] = self._server_url_edit.text().strip()
         self._config['api_key'] = self._api_key_edit.text()
+        if self._model_combo.count() > 0 and not self._model_combo.currentText().startswith('خطأ'):
+            self._config['ollama_model'] = self._model_combo.currentText()
 
         # Appearance
         self._config['appearance']['capture_border_color'] = self._border_color

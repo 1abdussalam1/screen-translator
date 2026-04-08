@@ -55,3 +55,23 @@ async def health():
         model_loaded=model_loaded,
         version=config.SERVER_VERSION,
     )
+
+
+@router.get("/models")
+async def list_models():
+    """Returns all Ollama models available on this server."""
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(f"{config.OLLAMA_URL}/api/tags")
+            resp.raise_for_status()
+            data = resp.json()
+            models = [m["name"] for m in data.get("models", [])]
+            return {
+                "models": models,
+                "current_model": config.OLLAMA_MODEL,
+                "count": len(models),
+            }
+    except Exception as e:
+        logger.error("Failed to fetch models from Ollama: %s", e)
+        return {"models": [], "current_model": config.OLLAMA_MODEL, "count": 0}
