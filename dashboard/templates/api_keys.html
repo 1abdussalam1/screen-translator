@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}مفاتيح API{% endblock %}
+{% block page_title %}إدارة مفاتيح API{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div class="flex items-center justify-between mb-6">
+    <p class="text-sm text-gray-500" id="keys-count">جارٍ التحميل...</p>
+    <button onclick="openGenerateModal()"
+            class="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-colors flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+        </svg>
+        إنشاء مفتاح جديد
+    </button>
+</div>
+
+<!-- Table -->
+<div class="bg-white rounded-2xl shadow overflow-hidden">
+    <table class="w-full text-right">
+        <thead class="bg-gray-50 border-b border-gray-100">
+            <tr class="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                <th class="px-6 py-4">الاسم</th>
+                <th class="px-6 py-4">البادئة</th>
+                <th class="px-6 py-4">المستخدم</th>
+                <th class="px-6 py-4">آخر استخدام</th>
+                <th class="px-6 py-4">حد المعدل</th>
+                <th class="px-6 py-4">تاريخ الإنشاء</th>
+                <th class="px-6 py-4">الحالة</th>
+                <th class="px-6 py-4">الإجراءات</th>
+            </tr>
+        </thead>
+        <tbody id="keys-tbody" class="divide-y divide-gray-50">
+            <tr>
+                <td colspan="8" class="text-center py-10 text-gray-400 text-sm">جارٍ التحميل...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Generate Key Modal -->
+<div id="generate-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl p-7 max-w-md w-full mx-4" dir="rtl">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-bold text-gray-800">إنشاء مفتاح API جديد</h3>
+            <button onclick="closeGenerateModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <form id="generate-form" class="space-y-4">
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">المستخدم *</label>
+                <select id="gen-user-id" required
+                        class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">اختر مستخدماً...</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">اسم المفتاح *</label>
+                <input id="gen-key-name" type="text" required value="Default"
+                       class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       placeholder="مثال: Windows Client" />
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">حد المعدل (طلب/دقيقة)</label>
+                <input id="gen-rate-limit" type="number" value="60" min="1"
+                       class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="submit"
+                        class="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors">
+                    إنشاء
+                </button>
+                <button type="button" onclick="closeGenerateModal()"
+                        class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors">
+                    إلغاء
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- New Key Display Modal (shown ONCE) -->
+<div id="new-key-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl p-7 max-w-lg w-full mx-4" dir="rtl">
+        <div class="text-center mb-5">
+            <div class="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <svg class="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+            <h3 class="text-lg font-bold text-gray-800">تم إنشاء المفتاح بنجاح!</h3>
+            <p class="text-sm text-red-600 font-semibold mt-1">
+                ⚠️ احفظ هذا المفتاح الآن — لن يُعرض مرة أخرى
+            </p>
+        </div>
+
+        <div class="bg-gray-900 rounded-xl p-4 flex items-center gap-3 mb-5">
+            <code id="new-key-value" class="flex-1 text-green-400 font-mono text-sm break-all" dir="ltr"></code>
+            <button onclick="copyNewKey()"
+                    class="shrink-0 bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">
+                نسخ
+            </button>
+        </div>
+
+        <button onclick="closeNewKeyModal()"
+                class="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors">
+            لقد حفظت المفتاح، أغلق
+        </button>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let _usersList = [];
+
+    async function loadKeys() {
+        try {
+            const resp = await fetch('/admin/api/keys');
+            const data = await resp.json();
+            renderKeys(data.keys || []);
+        } catch (e) {
+            showToast('تعذر تحميل المفاتيح', 'error');
+        }
+    }
+
+    async function loadUsers() {
+        try {
+            const resp = await fetch('/admin/api/users?limit=500');
+            const data = await resp.json();
+            _usersList = data.users || [];
+            const sel = document.getElementById('gen-user-id');
+            sel.innerHTML = '<option value="">اختر مستخدماً...</option>' +
+                _usersList.map(u => `<option value="${u.id}">${u.username}</option>`).join('');
+        } catch (e) {}
+    }
+
+    function getUserName(userId) {
+        const u = _usersList.find(x => x.id === userId);
+        return u ? u.username : `#${userId}`;
+    }
+
+    function renderKeys(keys) {
+        document.getElementById('keys-count').textContent = `إجمالي المفاتيح: ${fmtNum(keys.length)}`;
+
+        if (!keys.length) {
+            document.getElementById('keys-tbody').innerHTML =
+                `<tr><td colspan="8" class="text-center py-10 text-gray-400 text-sm">لا توجد مفاتيح API</td></tr>`;
+            return;
+        }
+
+        document.getElementById('keys-tbody').innerHTML = keys.map(k => `
+            <tr class="hover:bg-gray-50 transition-colors text-sm">
+                <td class="px-6 py-4 font-semibold text-gray-800">${k.name}</td>
+                <td class="px-6 py-4">
+                    <code class="bg-gray-100 text-gray-700 px-2 py-1 rounded-md text-xs font-mono" dir="ltr">${k.key_prefix}****</code>
+                </td>
+                <td class="px-6 py-4 text-gray-600">${getUserName(k.user_id)}</td>
+                <td class="px-6 py-4 text-gray-500 text-xs">
+                    ${k.last_used_at ? new Date(k.last_used_at).toLocaleString('ar-SA') : 'لم يُستخدم'}
+                </td>
+                <td class="px-6 py-4 text-gray-600">${fmtNum(k.rate_limit)}/دقيقة</td>
+                <td class="px-6 py-4 text-gray-500 text-xs">${new Date(k.created_at).toLocaleDateString('ar-SA')}</td>
+                <td class="px-6 py-4">
+                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${k.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}">
+                        ${k.is_active ? 'نشط' : 'محذوف'}
+                    </span>
+                </td>
+                <td class="px-6 py-4">
+                    ${k.is_active ? `
+                    <button onclick="revokeKey(${k.id})"
+                            class="text-red-500 hover:text-red-700 text-xs font-medium">إلغاء</button>
+                    ` : '<span class="text-gray-300 text-xs">—</span>'}
+                </td>
+            </tr>`).join('');
+    }
+
+    function openGenerateModal() {
+        loadUsers();
+        document.getElementById('generate-modal').classList.remove('hidden');
+    }
+    function closeGenerateModal() {
+        document.getElementById('generate-modal').classList.add('hidden');
+        document.getElementById('generate-form').reset();
+    }
+
+    function closeNewKeyModal() {
+        document.getElementById('new-key-modal').classList.add('hidden');
+    }
+
+    function copyNewKey() {
+        const key = document.getElementById('new-key-value').textContent;
+        navigator.clipboard.writeText(key).then(() => {
+            showToast('تم نسخ المفتاح!', 'success');
+        });
+    }
+
+    document.getElementById('generate-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+            const resp = await fetch('/admin/api/keys/generate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    user_id: parseInt(document.getElementById('gen-user-id').value),
+                    name: document.getElementById('gen-key-name').value,
+                    rate_limit: parseInt(document.getElementById('gen-rate-limit').value),
+                }),
+            });
+            if (resp.ok) {
+                const data = await resp.json();
+                closeGenerateModal();
+                document.getElementById('new-key-value').textContent = data.key;
+                document.getElementById('new-key-modal').classList.remove('hidden');
+                loadKeys();
+            } else {
+                const err = await resp.json();
+                showToast(err.detail || 'حدث خطأ', 'error');
+            }
+        } catch (e) {
+            showToast('تعذر الاتصال بالخادم', 'error');
+        }
+    });
+
+    function revokeKey(keyId) {
+        confirmAction(
+            'إلغاء المفتاح',
+            'هل تريد إلغاء هذا المفتاح؟ لن يتمكن المستخدم من استخدامه بعد ذلك.',
+            async () => {
+                const resp = await fetch(`/admin/api/keys/${keyId}`, { method: 'DELETE' });
+                if (resp.ok || resp.status === 204) {
+                    showToast('تم إلغاء المفتاح', 'success');
+                    loadKeys();
+                } else {
+                    showToast('حدث خطأ', 'error');
+                }
+            }
+        );
+    }
+
+    loadKeys();
+    loadUsers();
+</script>
+{% endblock %}

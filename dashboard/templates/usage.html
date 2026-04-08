@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}إحصائيات الاستخدام{% endblock %}
+{% block page_title %}إحصائيات الاستخدام{% endblock %}
+
+{% block content %}
+
+<!-- Filters -->
+<div class="bg-white rounded-2xl shadow p-6 mb-6">
+    <h2 class="text-base font-bold text-gray-700 mb-4">تصفية البيانات</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div>
+            <label class="block text-sm font-semibold text-gray-600 mb-1">المستخدم</label>
+            <select id="filter-user"
+                    class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">كل المستخدمين</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-semibold text-gray-600 mb-1">من تاريخ</label>
+            <input id="filter-start" type="date"
+                   class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+            <label class="block text-sm font-semibold text-gray-600 mb-1">إلى تاريخ</label>
+            <input id="filter-end" type="date"
+                   class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="flex items-end gap-2">
+            <button onclick="applyFilters()"
+                    class="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
+                تطبيق
+            </button>
+            <button onclick="resetFilters()"
+                    class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors">
+                إعادة
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Summary stats row -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6" id="usage-summary">
+</div>
+
+<!-- Bar chart per user -->
+<div class="bg-white rounded-2xl shadow p-6 mb-6">
+    <h2 class="text-base font-bold text-gray-700 mb-4">الطلبات حسب المستخدم</h2>
+    <canvas id="usageBarChart" height="80"></canvas>
+</div>
+
+<!-- Usage Table -->
+<div class="bg-white rounded-2xl shadow overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <h2 class="text-base font-bold text-gray-700">سجل الاستخدام</h2>
+        <div class="flex items-center gap-3">
+            <span id="usage-count" class="text-sm text-gray-400"></span>
+            <button onclick="exportCSV()"
+                    class="flex items-center gap-2 bg-green-50 hover:bg-green-100 text-green-700 px-4 py-2 rounded-xl text-sm font-semibold transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                تصدير CSV
+            </button>
+        </div>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-right">
+            <thead class="bg-gray-50">
+                <tr class="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                    <th class="px-5 py-3">الوقت</th>
+                    <th class="px-5 py-3">المستخدم</th>
+                    <th class="px-5 py-3">من → إلى</th>
+                    <th class="px-5 py-3">توكنات الإدخال</th>
+                    <th class="px-5 py-3">توكنات الإخراج</th>
+                    <th class="px-5 py-3">الإجمالي</th>
+                    <th class="px-5 py-3">المدة</th>
+                    <th class="px-5 py-3">النقطة</th>
+                </tr>
+            </thead>
+            <tbody id="usage-tbody" class="divide-y divide-gray-50">
+                <tr>
+                    <td colspan="8" class="text-center py-10 text-gray-400 text-sm">جارٍ التحميل...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="flex items-center justify-between px-6 py-4 border-t border-gray-100 text-sm text-gray-500"
+         id="usage-pagination"></div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let _usageData = [];
+    let _usersList = [];
+    let _barChart = null;
+    let _currentSkip = 0;
+    const PAGE_SIZE = 50;
+
+    async function loadUsers() {
+        try {
+            const resp = await fetch('/admin/api/users?limit=500');
+            const data = await resp.json();
+            _usersList = data.users || [];
+            const sel = document.getElementById('filter-user');
+            sel.innerHTML = '<option value="">كل المستخدمين</option>' +
+                _usersList.map(u => `<option value="${u.id}">${u.username}</option>`).join('');
+        } catch (e) {}
+    }
+
+    function getUserName(userId) {
+        if (!userId) return '—';
+        const u = _usersList.find(x => x.id === userId);
+        return u ? u.username : `#${userId}`;
+    }
+
+    function buildQueryString(skip = 0) {
+        const params = new URLSearchParams();
+        const userId = document.getElementById('filter-user').value;
+        const start = document.getElementById('filter-start').value;
+        const end = document.getElementById('filter-end').value;
+        if (userId) params.append('user_id', userId);
+        if (start) params.append('start_date', start + 'T00:00:00');
+        if (end) params.append('end_date', end + 'T23:59:59');
+        params.append('skip', skip);
+        params.append('limit', PAGE_SIZE);
+        return params.toString();
+    }
+
+    async function loadUsage(skip = 0) {
+        _currentSkip = skip;
+        try {
+            const resp = await fetch(`/admin/api/usage?${buildQueryString(skip)}`);
+            const data = await resp.json();
+            _usageData = data.logs || [];
+            renderUsageTable(_usageData, data.total, skip);
+            renderSummary(_usageData);
+            renderBarChart(_usageData);
+        } catch (e) {
+            showToast('تعذر تحميل بيانات الاستخدام', 'error');
+        }
+    }
+
+    function renderSummary(logs) {
+        const totalRequests = logs.length;
+        const totalTokens = logs.reduce((s, l) => s + l.input_tokens + l.output_tokens, 0);
+        const avgMs = logs.length
+            ? (logs.reduce((s, l) => s + l.processing_time_ms, 0) / logs.length).toFixed(0)
+            : 0;
+
+        document.getElementById('usage-summary').innerHTML = `
+            <div class="bg-white rounded-2xl shadow p-5">
+                <p class="text-xs text-gray-500 font-semibold mb-1">الطلبات (الصفحة)</p>
+                <p class="text-2xl font-extrabold text-gray-800">${fmtNum(totalRequests)}</p>
+            </div>
+            <div class="bg-white rounded-2xl shadow p-5">
+                <p class="text-xs text-gray-500 font-semibold mb-1">إجمالي التوكنات</p>
+                <p class="text-2xl font-extrabold text-purple-600">${fmtNum(totalTokens)}</p>
+            </div>
+            <div class="bg-white rounded-2xl shadow p-5">
+                <p class="text-xs text-gray-500 font-semibold mb-1">متوسط المدة</p>
+                <p class="text-2xl font-extrabold text-blue-600">${fmtNum(avgMs)} ms</p>
+            </div>`;
+    }
+
+    function renderBarChart(logs) {
+        // Aggregate by user
+        const byUser = {};
+        logs.forEach(l => {
+            const name = getUserName(l.user_id);
+            byUser[name] = (byUser[name] || 0) + 1;
+        });
+        const labels = Object.keys(byUser);
+        const values = Object.values(byUser);
+
+        const ctx = document.getElementById('usageBarChart');
+        if (_barChart) _barChart.destroy();
+        _barChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'الطلبات',
+                    data: values,
+                    backgroundColor: 'rgba(59,130,246,0.7)',
+                    borderRadius: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { font: { family: 'Cairo', size: 12 } } },
+                    y: { beginAtZero: true, ticks: { font: { family: 'Cairo', size: 12 } } },
+                }
+            }
+        });
+    }
+
+    function renderUsageTable(logs, total, skip) {
+        document.getElementById('usage-count').textContent = `${fmtNum(total)} سجل`;
+
+        if (!logs.length) {
+            document.getElementById('usage-tbody').innerHTML =
+                `<tr><td colspan="8" class="text-center py-10 text-gray-400 text-sm">لا توجد بيانات</td></tr>`;
+            document.getElementById('usage-pagination').innerHTML = '';
+            return;
+        }
+
+        document.getElementById('usage-tbody').innerHTML = logs.map(l => `
+            <tr class="hover:bg-gray-50 transition-colors text-sm">
+                <td class="px-5 py-3 text-xs text-gray-500 whitespace-nowrap">${new Date(l.timestamp).toLocaleString('ar-SA')}</td>
+                <td class="px-5 py-3 text-gray-700">${getUserName(l.user_id)}</td>
+                <td class="px-5 py-3 text-gray-600">${l.source_language || '?'} → ${l.target_language || '?'}</td>
+                <td class="px-5 py-3 text-gray-600">${fmtNum(l.input_tokens)}</td>
+                <td class="px-5 py-3 text-gray-600">${fmtNum(l.output_tokens)}</td>
+                <td class="px-5 py-3 font-semibold text-gray-800">${fmtNum(l.input_tokens + l.output_tokens)}</td>
+                <td class="px-5 py-3 text-gray-500">${Math.round(l.processing_time_ms)} ms</td>
+                <td class="px-5 py-3 text-gray-400 text-xs max-w-xs truncate">${l.endpoint || '—'}</td>
+            </tr>`).join('');
+
+        // Pagination
+        const totalPages = Math.ceil(total / PAGE_SIZE);
+        const page = Math.floor(skip / PAGE_SIZE);
+        document.getElementById('usage-pagination').innerHTML = totalPages > 1 ? `
+            <span>${page + 1} من ${totalPages}</span>
+            <div class="flex gap-2">
+                <button onclick="loadUsage(${Math.max(0, skip - PAGE_SIZE)})"
+                        ${skip === 0 ? 'disabled' : ''}
+                        class="px-3 py-1 rounded-lg border text-sm disabled:opacity-40 hover:bg-gray-50">السابق</button>
+                <button onclick="loadUsage(${skip + PAGE_SIZE})"
+                        ${skip + PAGE_SIZE >= total ? 'disabled' : ''}
+                        class="px-3 py-1 rounded-lg border text-sm disabled:opacity-40 hover:bg-gray-50">التالي</button>
+            </div>` : '';
+    }
+
+    function applyFilters() { loadUsage(0); }
+    function resetFilters() {
+        document.getElementById('filter-user').value = '';
+        document.getElementById('filter-start').value = '';
+        document.getElementById('filter-end').value = '';
+        loadUsage(0);
+    }
+
+    function exportCSV() {
+        if (!_usageData.length) { showToast('لا توجد بيانات للتصدير', 'error'); return; }
+        const header = ['الوقت','المستخدم','من','إلى','توكنات الإدخال','توكنات الإخراج','الإجمالي','المدة (ms)','النقطة'];
+        const rows = _usageData.map(l => [
+            new Date(l.timestamp).toISOString(),
+            getUserName(l.user_id),
+            l.source_language || '',
+            l.target_language || '',
+            l.input_tokens,
+            l.output_tokens,
+            l.input_tokens + l.output_tokens,
+            Math.round(l.processing_time_ms),
+            l.endpoint || '',
+        ]);
+        const csv = [header, ...rows].map(r => r.join(',')).join('\n');
+        const blob = new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `usage_${new Date().toISOString().slice(0,10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('تم تصدير البيانات', 'success');
+    }
+
+    loadUsers().then(() => loadUsage());
+</script>
+{% endblock %}

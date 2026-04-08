@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}المستخدمون{% endblock %}
+{% block page_title %}إدارة المستخدمين{% endblock %}
+
+{% block content %}
+
+<!-- Header row -->
+<div class="flex items-center justify-between mb-6">
+    <p class="text-sm text-gray-500" id="users-count">جارٍ التحميل...</p>
+    <button onclick="openAddUserModal()"
+            class="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-colors flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        إضافة مستخدم
+    </button>
+</div>
+
+<!-- Users Table -->
+<div class="bg-white rounded-2xl shadow overflow-hidden">
+    <table class="w-full text-right">
+        <thead class="bg-gray-50 border-b border-gray-100">
+            <tr class="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                <th class="px-6 py-4">الاسم</th>
+                <th class="px-6 py-4">البريد الإلكتروني</th>
+                <th class="px-6 py-4">التوكنات المستخدمة</th>
+                <th class="px-6 py-4">الحد الشهري</th>
+                <th class="px-6 py-4">تاريخ الإنشاء</th>
+                <th class="px-6 py-4">الحالة</th>
+                <th class="px-6 py-4">الإجراءات</th>
+            </tr>
+        </thead>
+        <tbody id="users-tbody" class="divide-y divide-gray-50">
+            <tr>
+                <td colspan="7" class="text-center py-10 text-gray-400 text-sm">جارٍ التحميل...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+<div class="flex items-center justify-between mt-4 text-sm text-gray-500" id="pagination-controls">
+</div>
+
+<!-- Add User Modal -->
+<div id="add-user-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl p-7 max-w-md w-full mx-4" dir="rtl">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-bold text-gray-800">إضافة مستخدم جديد</h3>
+            <button onclick="closeAddUserModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <form id="add-user-form" class="space-y-4">
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">اسم المستخدم *</label>
+                <input id="new-username" type="text" required
+                       class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       placeholder="مثال: ahmed_ali" />
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">البريد الإلكتروني</label>
+                <input id="new-email" type="email"
+                       class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       placeholder="example@email.com" />
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">الحد الشهري للتوكنات</label>
+                <input id="new-token-limit" type="number" value="1000000" min="0"
+                       class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+
+            <div id="add-user-error" class="hidden text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2"></div>
+
+            <div class="flex gap-3 pt-2">
+                <button type="submit"
+                        class="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors">
+                    إضافة
+                </button>
+                <button type="button" onclick="closeAddUserModal()"
+                        class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors">
+                    إلغاء
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div id="edit-user-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl p-7 max-w-md w-full mx-4" dir="rtl">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-bold text-gray-800">تعديل المستخدم</h3>
+            <button onclick="closeEditUserModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <form id="edit-user-form" class="space-y-4">
+            <input type="hidden" id="edit-user-id" />
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">البريد الإلكتروني</label>
+                <input id="edit-email" type="email"
+                       class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">الحد الشهري للتوكنات</label>
+                <input id="edit-token-limit" type="number" min="0"
+                       class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="submit"
+                        class="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors">
+                    حفظ
+                </button>
+                <button type="button" onclick="closeEditUserModal()"
+                        class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors">
+                    إلغاء
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentPage = 0;
+    const PAGE_SIZE = 20;
+
+    async function loadUsers(skip = 0) {
+        try {
+            const resp = await fetch(`/admin/api/users?skip=${skip}&limit=${PAGE_SIZE}`);
+            const data = await resp.json();
+            renderUsers(data.users, data.total, skip);
+        } catch (e) {
+            showToast('تعذر تحميل المستخدمين', 'error');
+        }
+    }
+
+    function renderUsers(users, total, skip) {
+        document.getElementById('users-count').textContent = `إجمالي المستخدمين: ${fmtNum(total)}`;
+
+        if (!users.length) {
+            document.getElementById('users-tbody').innerHTML =
+                `<tr><td colspan="7" class="text-center py-10 text-gray-400 text-sm">لا يوجد مستخدمون</td></tr>`;
+            return;
+        }
+
+        document.getElementById('users-tbody').innerHTML = users.map(u => `
+            <tr class="hover:bg-gray-50 transition-colors text-sm">
+                <td class="px-6 py-4 font-semibold text-gray-800">${u.username}</td>
+                <td class="px-6 py-4 text-gray-500">${u.email || '—'}</td>
+                <td class="px-6 py-4">
+                    <div class="flex items-center gap-2">
+                        <span class="font-medium text-gray-700">${fmtNum(u.tokens_used_this_month)}</span>
+                        <div class="flex-1 h-1.5 bg-gray-100 rounded-full max-w-20">
+                            <div class="h-1.5 rounded-full ${getUsageColor(u.tokens_used_this_month, u.token_limit)}"
+                                 style="width: ${Math.min(100, (u.tokens_used_this_month/u.token_limit*100)).toFixed(0)}%"></div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4 text-gray-500">${fmtNum(u.token_limit)}</td>
+                <td class="px-6 py-4 text-gray-500 text-xs">${new Date(u.created_at).toLocaleDateString('ar-SA')}</td>
+                <td class="px-6 py-4">
+                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${u.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}">
+                        ${u.is_active ? 'نشط' : 'معطل'}
+                    </span>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="flex items-center gap-2">
+                        <button onclick="openEditUserModal(${JSON.stringify(u).replace(/"/g, '&quot;')})"
+                                class="text-blue-500 hover:text-blue-700 text-xs font-medium">تعديل</button>
+                        <button onclick="toggleUserStatus(${u.id}, ${u.is_active})"
+                                class="text-${u.is_active ? 'red' : 'green'}-500 hover:text-${u.is_active ? 'red' : 'green'}-700 text-xs font-medium">
+                            ${u.is_active ? 'تعطيل' : 'تفعيل'}
+                        </button>
+                    </div>
+                </td>
+            </tr>`).join('');
+
+        // Pagination
+        const totalPages = Math.ceil(total / PAGE_SIZE);
+        const page = Math.floor(skip / PAGE_SIZE);
+        document.getElementById('pagination-controls').innerHTML = totalPages > 1 ? `
+            <span>${page + 1} من ${totalPages}</span>
+            <div class="flex gap-2">
+                <button onclick="loadUsers(${Math.max(0, skip - PAGE_SIZE)})"
+                        ${skip === 0 ? 'disabled' : ''}
+                        class="px-3 py-1 rounded-lg border text-sm disabled:opacity-40 hover:bg-gray-50">السابق</button>
+                <button onclick="loadUsers(${skip + PAGE_SIZE})"
+                        ${skip + PAGE_SIZE >= total ? 'disabled' : ''}
+                        class="px-3 py-1 rounded-lg border text-sm disabled:opacity-40 hover:bg-gray-50">التالي</button>
+            </div>` : '';
+    }
+
+    function getUsageColor(used, limit) {
+        const pct = used / limit;
+        if (pct >= 0.9) return 'bg-red-500';
+        if (pct >= 0.7) return 'bg-yellow-400';
+        return 'bg-blue-500';
+    }
+
+    function openAddUserModal() {
+        document.getElementById('add-user-modal').classList.remove('hidden');
+    }
+    function closeAddUserModal() {
+        document.getElementById('add-user-modal').classList.add('hidden');
+        document.getElementById('add-user-form').reset();
+    }
+
+    function openEditUserModal(user) {
+        document.getElementById('edit-user-id').value = user.id;
+        document.getElementById('edit-email').value = user.email || '';
+        document.getElementById('edit-token-limit').value = user.token_limit;
+        document.getElementById('edit-user-modal').classList.remove('hidden');
+    }
+    function closeEditUserModal() {
+        document.getElementById('edit-user-modal').classList.add('hidden');
+    }
+
+    document.getElementById('add-user-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const errEl = document.getElementById('add-user-error');
+        errEl.classList.add('hidden');
+        try {
+            const resp = await fetch('/admin/api/users', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    username: document.getElementById('new-username').value,
+                    email: document.getElementById('new-email').value || null,
+                    token_limit: parseInt(document.getElementById('new-token-limit').value),
+                }),
+            });
+            if (resp.ok) {
+                closeAddUserModal();
+                showToast('تم إضافة المستخدم بنجاح', 'success');
+                loadUsers();
+            } else {
+                const err = await resp.json();
+                errEl.textContent = err.detail || 'حدث خطأ';
+                errEl.classList.remove('hidden');
+            }
+        } catch (e) {
+            errEl.textContent = 'تعذر الاتصال بالخادم';
+            errEl.classList.remove('hidden');
+        }
+    });
+
+    document.getElementById('edit-user-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('edit-user-id').value;
+        try {
+            const resp = await fetch(`/admin/api/users/${id}`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    email: document.getElementById('edit-email').value || null,
+                    token_limit: parseInt(document.getElementById('edit-token-limit').value),
+                }),
+            });
+            if (resp.ok) {
+                closeEditUserModal();
+                showToast('تم تحديث بيانات المستخدم', 'success');
+                loadUsers();
+            } else {
+                showToast('حدث خطأ أثناء التحديث', 'error');
+            }
+        } catch (e) {
+            showToast('تعذر الاتصال بالخادم', 'error');
+        }
+    });
+
+    async function toggleUserStatus(userId, isActive) {
+        confirmAction(
+            isActive ? 'تعطيل المستخدم' : 'تفعيل المستخدم',
+            isActive ? 'هل تريد تعطيل هذا المستخدم؟' : 'هل تريد تفعيل هذا المستخدم؟',
+            async () => {
+                const resp = await fetch(`/admin/api/users/${userId}`, {
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({is_active: !isActive}),
+                });
+                if (resp.ok) {
+                    showToast(isActive ? 'تم تعطيل المستخدم' : 'تم تفعيل المستخدم', 'success');
+                    loadUsers();
+                } else {
+                    showToast('حدث خطأ', 'error');
+                }
+            }
+        );
+    }
+
+    loadUsers();
+</script>
+{% endblock %}

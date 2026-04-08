@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+venv/
+.venv/
+env/
+.env
+
+# Environment
+.env
+*.env.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+client/dist/
+client/build/
+client/installer/Output/
+*.exe
+*.msi
+!client/installer/*.iss
+
+# Node (if used for dashboard assets)
+node_modules/
+
+# Alembic (don't ignore versions)
+# alembic/versions/*.py  <- keep these
+
+# Sensitive
+server/src/screen_translator.db
+server/data/
+
+# PyInstaller
+*.spec

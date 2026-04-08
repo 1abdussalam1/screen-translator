@@ -1,0 +1,63 @@
+version: "3.9"
+
+networks:
+  translator-network:
+    driver: bridge
+
+volumes:
+  db-data:
+  ollama-data:
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: screen-translator-ollama
+    networks:
+      - translator-network
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "11434:11434"
+    # Uncomment for GPU support:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: screen-translator-app
+    networks:
+      - translator-network
+    depends_on:
+      ollama:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - db-data:/app/data
+      - ./versions.json:/app/versions.json:ro
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-aya-expanse:8b}
+      - DATABASE_URL=sqlite+aiosqlite:///./data/screen_translator.db
+      - SECRET_KEY=${SECRET_KEY:-change-this-to-a-random-secret-in-production}
+      - ADMIN_SESSION_EXPIRE_HOURS=${ADMIN_SESSION_EXPIRE_HOURS:-24}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

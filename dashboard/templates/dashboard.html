@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}لوحة التحكم{% endblock %}
+{% block page_title %}لوحة التحكم{% endblock %}
+
+{% block content %}
+<!-- Stats cards -->
+<div id="stats-container"
+     hx-get="/admin/api/stats"
+     hx-trigger="load, every 30s"
+     hx-swap="innerHTML"
+     hx-on::after-request="renderChart()"
+     hx-headers='{"Accept": "application/json"}'>
+    <!-- Loading placeholder -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+        {% for _ in range(4) %}
+        <div class="bg-white rounded-2xl shadow p-6 animate-pulse">
+            <div class="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
+            <div class="h-8 bg-gray-200 rounded w-3/4"></div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Charts & recent usage -->
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+    <!-- Line chart: last 30 days -->
+    <div class="xl:col-span-2 bg-white rounded-2xl shadow p-6">
+        <h2 class="text-base font-bold text-gray-700 mb-4">الطلبات خلال آخر ٣٠ يوماً</h2>
+        <canvas id="requestsChart" height="100"></canvas>
+    </div>
+
+    <!-- Quick info -->
+    <div class="bg-white rounded-2xl shadow p-6 flex flex-col gap-4">
+        <h2 class="text-base font-bold text-gray-700">ملخص سريع</h2>
+        <div id="quick-summary" class="space-y-3 text-sm text-gray-600">
+            <p class="text-gray-400">جارٍ التحميل...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Recent usage table -->
+<div class="mt-6 bg-white rounded-2xl shadow p-6">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-bold text-gray-700">آخر عمليات الترجمة</h2>
+        <a href="/dashboard/usage" class="text-blue-500 text-sm hover:underline">عرض الكل</a>
+    </div>
+    <div id="recent-usage-table"
+         hx-get="/admin/api/usage?limit=10"
+         hx-trigger="load"
+         hx-headers='{"Accept": "application/json"}'>
+        <p class="text-gray-400 text-sm text-center py-6">جارٍ التحميل...</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let _chartInstance = null;
+
+    // HTMX after stats load: render cards + chart
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.elt.id === 'stats-container') {
+            try {
+                const data = JSON.parse(evt.detail.xhr.responseText);
+                renderStatsCards(data);
+                renderChart(data.daily_requests || []);
+                renderQuickSummary(data);
+            } catch (e) {}
+        }
+        if (evt.detail.elt.id === 'recent-usage-table') {
+            try {
+                const data = JSON.parse(evt.detail.xhr.responseText);
+                renderRecentUsage(data.logs || []);
+            } catch (e) {}
+        }
+    });
+
+    function renderStatsCards(data) {
+        const cards = [
+            {
+                label: 'المستخدمون النشطون',
+                value: fmtNum(data.active_users),
+                total: `من أصل ${fmtNum(data.total_users)}`,
+                color: 'blue',
+                icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                             d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>`,
+            },
+            {
+                label: 'طلبات اليوم',
+                value: fmtNum(data.requests_today),
+                total: `الشهر: ${fmtNum(data.requests_this_month)}`,
+                color: 'green',
+                icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                             d="M13 10V3L4 14h7v7l9-11h-7z"/>`,
+            },
+            {
+                label: 'توكنات اليوم',
+                value: fmtNum(data.tokens_today),
+                total: `الشهر: ${fmtNum(data.tokens_this_month)}`,
+                color: 'purple',
+                icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                             d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>`,
+            },
+            {
+                label: 'المفاتيح النشطة',
+                value: fmtNum(data.active_api_keys),
+                total: `الإجمالي: ${fmtNum(data.total_api_keys)}`,
+                color: 'orange',
+                icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                             d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>`,
+            },
+        ];
+
+        const colorMap = {
+            blue: 'bg-blue-50 text-blue-600',
+            green: 'bg-green-50 text-green-600',
+            purple: 'bg-purple-50 text-purple-600',
+            orange: 'bg-orange-50 text-orange-600',
+        };
+
+        const html = `<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">` +
+            cards.map(c => `
+            <div class="bg-white rounded-2xl shadow p-6 hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between mb-3">
+                    <p class="text-sm font-semibold text-gray-500">${c.label}</p>
+                    <div class="w-10 h-10 rounded-xl ${colorMap[c.color]} flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">${c.icon}</svg>
+                    </div>
+                </div>
+                <p class="text-3xl font-extrabold text-gray-800">${c.value}</p>
+                <p class="text-xs text-gray-400 mt-1">${c.total}</p>
+            </div>`).join('') +
+        `</div>`;
+
+        document.getElementById('stats-container').innerHTML = html;
+    }
+
+    function renderQuickSummary(data) {
+        document.getElementById('quick-summary').innerHTML = `
+            <div class="flex justify-between py-2 border-b border-gray-100">
+                <span class="text-gray-500">إجمالي المستخدمين</span>
+                <span class="font-bold text-gray-800">${fmtNum(data.total_users)}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-gray-100">
+                <span class="text-gray-500">المستخدمون النشطون</span>
+                <span class="font-bold text-green-600">${fmtNum(data.active_users)}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-gray-100">
+                <span class="text-gray-500">مفاتيح API النشطة</span>
+                <span class="font-bold text-blue-600">${fmtNum(data.active_api_keys)}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-gray-100">
+                <span class="text-gray-500">طلبات هذا الشهر</span>
+                <span class="font-bold text-gray-800">${fmtNum(data.requests_this_month)}</span>
+            </div>
+            <div class="flex justify-between py-2">
+                <span class="text-gray-500">توكنات هذا الشهر</span>
+                <span class="font-bold text-purple-600">${fmtNum(data.tokens_this_month)}</span>
+            </div>`;
+    }
+
+    function renderChart(dailyData) {
+        if (!dailyData || !dailyData.length) return;
+        const ctx = document.getElementById('requestsChart');
+        if (!ctx) return;
+
+        if (_chartInstance) _chartInstance.destroy();
+
+        _chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dailyData.map(d => d.date),
+                datasets: [{
+                    label: 'الطلبات',
+                    data: dailyData.map(d => d.count),
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59,130,246,0.08)',
+                    borderWidth: 2.5,
+                    pointRadius: 3,
+                    fill: true,
+                    tension: 0.4,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { family: 'Cairo', size: 11 } } },
+                    y: { beginAtZero: true, ticks: { font: { family: 'Cairo', size: 11 } } },
+                }
+            }
+        });
+    }
+
+    function renderRecentUsage(logs) {
+        if (!logs.length) {
+            document.getElementById('recent-usage-table').innerHTML =
+                '<p class="text-gray-400 text-sm text-center py-6">لا توجد بيانات حتى الآن</p>';
+            return;
+        }
+        const rows = logs.map(l => `
+            <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-4 py-3 text-xs text-gray-500">${new Date(l.timestamp).toLocaleString('ar-SA')}</td>
+                <td class="px-4 py-3 text-sm text-gray-700">${l.source_language || '—'} → ${l.target_language || '—'}</td>
+                <td class="px-4 py-3 text-sm font-medium text-gray-800">${fmtNum(l.input_tokens + l.output_tokens)}</td>
+                <td class="px-4 py-3 text-xs text-gray-500">${Math.round(l.processing_time_ms)} ms</td>
+                <td class="px-4 py-3 text-xs text-gray-400 max-w-xs truncate">${l.endpoint || '—'}</td>
+            </tr>`).join('');
+
+        document.getElementById('recent-usage-table').innerHTML = `
+            <div class="overflow-x-auto">
+            <table class="w-full text-right">
+                <thead>
+                    <tr class="text-xs font-semibold text-gray-500 border-b border-gray-100">
+                        <th class="px-4 py-2">الوقت</th>
+                        <th class="px-4 py-2">اللغات</th>
+                        <th class="px-4 py-2">التوكنات</th>
+                        <th class="px-4 py-2">المدة</th>
+                        <th class="px-4 py-2">النقطة</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">${rows}</tbody>
+            </table>
+            </div>`;
+    }
+
+    // Load stats immediately via JS for initial chart render
+    fetch('/admin/api/stats', {headers: {'Accept': 'application/json'}})
+        .then(r => r.json())
+        .then(data => {
+            renderStatsCards(data);
+            renderChart(data.daily_requests || []);
+            renderQuickSummary(data);
+        })
+        .catch(() => {});
+
+    fetch('/admin/api/usage?limit=10', {headers: {'Accept': 'application/json'}})
+        .then(r => r.json())
+        .then(data => renderRecentUsage(data.logs || []))
+        .catch(() => {});
+</script>
+{% endblock %}

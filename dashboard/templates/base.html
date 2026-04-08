@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}لوحة تحكم المترجم{% endblock %}</title>
+
+    <!-- Google Fonts: Cairo -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Cairo', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50:  '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- HTMX CDN -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+    <!-- Custom styles -->
+    <link rel="stylesheet" href="/dashboard/static/css/style.css" />
+
+    <style>
+        body { font-family: 'Cairo', sans-serif; }
+        .sidebar-item.active { background-color: rgba(255,255,255,0.1); border-right: 3px solid #3b82f6; }
+        .sidebar-item:hover { background-color: rgba(255,255,255,0.07); }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex">
+
+    <!-- Sidebar -->
+    <aside class="fixed top-0 right-0 h-full w-64 bg-gray-900 text-white flex flex-col z-30 shadow-xl">
+        <!-- Logo -->
+        <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-700">
+            <div class="w-9 h-9 bg-blue-500 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/>
+                </svg>
+            </div>
+            <div>
+                <p class="font-bold text-sm leading-tight">مترجم الشاشة</p>
+                <p class="text-gray-400 text-xs">لوحة التحكم</p>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 px-3 py-4 space-y-1">
+            <a href="/dashboard/"
+               class="sidebar-item {% if active_page == 'dashboard' %}active{% endif %} flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-200 transition-all">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                </svg>
+                لوحة التحكم
+            </a>
+
+            <a href="/dashboard/users"
+               class="sidebar-item {% if active_page == 'users' %}active{% endif %} flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-200 transition-all">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                </svg>
+                المستخدمون
+            </a>
+
+            <a href="/dashboard/api-keys"
+               class="sidebar-item {% if active_page == 'api-keys' %}active{% endif %} flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-200 transition-all">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                </svg>
+                مفاتيح API
+            </a>
+
+            <a href="/dashboard/usage"
+               class="sidebar-item {% if active_page == 'usage' %}active{% endif %} flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-200 transition-all">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                الإحصائيات
+            </a>
+        </nav>
+
+        <!-- Bottom: Admin info + Logout -->
+        <div class="px-4 py-4 border-t border-gray-700">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                    {{ admin.username[0].upper() if admin else 'A' }}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-white truncate">{{ admin.username if admin else 'المدير' }}</p>
+                    <p class="text-xs text-gray-400">مدير النظام</p>
+                </div>
+                <button onclick="logout()"
+                        class="text-gray-400 hover:text-red-400 transition-colors"
+                        title="تسجيل الخروج">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main content wrapper (offset for sidebar) -->
+    <div class="mr-64 flex-1 flex flex-col min-h-screen">
+        <!-- Top bar -->
+        <header class="bg-white shadow-sm px-8 py-4 flex items-center justify-between sticky top-0 z-20">
+            <h1 class="text-xl font-bold text-gray-800">{% block page_title %}لوحة التحكم{% endblock %}</h1>
+            <div class="flex items-center gap-4 text-sm text-gray-500">
+                <span id="server-time"></span>
+                <div class="w-2 h-2 rounded-full bg-green-400" title="الخادم يعمل"></div>
+            </div>
+        </header>
+
+        <!-- Page content -->
+        <main class="flex-1 p-8">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toast-container" class="fixed bottom-4 left-4 z-50 space-y-2"></div>
+
+    <!-- Confirmation modal -->
+    <div id="confirm-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4" dir="rtl">
+            <h3 class="text-lg font-bold text-gray-800 mb-2" id="confirm-title">تأكيد الإجراء</h3>
+            <p class="text-gray-600 text-sm mb-6" id="confirm-message">هل أنت متأكد من هذا الإجراء؟</p>
+            <div class="flex gap-3">
+                <button id="confirm-ok"
+                        class="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                    تأكيد
+                </button>
+                <button onclick="closeConfirmModal()"
+                        class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors">
+                    إلغاء
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shared JS -->
+    <script src="/dashboard/static/js/dashboard.js"></script>
+    <script>
+        // Update clock
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('server-time').textContent =
+                now.toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'});
+        }
+        updateClock();
+        setInterval(updateClock, 60000);
+
+        async function logout() {
+            await fetch('/admin/logout', {method: 'POST'});
+            window.location.href = '/dashboard/login';
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
