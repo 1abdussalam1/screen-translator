@@ -5,7 +5,7 @@ import secrets
 
 import bcrypt
 from fastapi import FastAPI, Request, Form, Depends
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
@@ -169,6 +169,7 @@ async def api_keys_page(request: Request, db: AsyncSession = Depends(get_db)):
             "id": k.id,
             "name": k.name,
             "key_prefix": k.key_prefix,
+            "raw_key": k.raw_key,
             "username": username,
             "is_active": k.is_active,
             "created_at": k.created_at,
@@ -295,6 +296,7 @@ async def generate_key(request: Request, db: AsyncSession = Depends(get_db)):
         name=name,
         is_active=True,
         rate_limit=server_config.RATE_LIMIT_DEFAULT,
+        raw_key=raw_key,
     )
     db.add(api_key)
     await db.commit()
@@ -303,18 +305,15 @@ async def generate_key(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @dashboard_app.delete("/api/keys/{key_id}")
-async def revoke_key(key_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+async def delete_key(key_id: int, request: Request, db: AsyncSession = Depends(get_db)):
     admin = get_admin_from_request(request)
     if not admin:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    key = await db.get(APIKey, key_id)
-    if not key:
-        return JSONResponse({"error": "Not found"}, status_code=404)
-
-    key.is_active = False
+    from sqlalchemy import delete as sql_delete
+    await db.execute(sql_delete(APIKey).where(APIKey.id == key_id))
     await db.commit()
-    return JSONResponse({"ok": True})
+    return Response(status_code=200)  # Empty response — HTMX removes the row
 
 
 @dashboard_app.get("/api/stats")

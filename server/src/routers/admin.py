@@ -191,6 +191,7 @@ async def generate_api_key(
         name=body.name,
         rate_limit=body.rate_limit,
         is_active=True,
+        raw_key=raw_key,
     )
     db.add(api_key)
     await db.flush()
@@ -217,9 +218,8 @@ async def delete_api_key(
     if api_key is None:
         raise HTTPException(status_code=404, detail="API key not found")
 
-    # Soft-delete: mark inactive
-    api_key.is_active = False
-    db.add(api_key)
+    # Hard delete the row
+    await db.delete(api_key)
 
 
 @router.get("/api/keys")

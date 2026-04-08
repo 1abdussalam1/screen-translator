@@ -43,3 +43,12 @@ async def create_all_tables():
     from .models import database  # noqa – import to register models
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    # SQLite migration: add raw_key column if not exists
+    if "sqlite" in _db_url:
+        async with engine.begin() as conn:
+            try:
+                await conn.execute(
+                    __import__("sqlalchemy").text("ALTER TABLE api_keys ADD COLUMN raw_key TEXT")
+                )
+            except Exception:
+                pass  # Column already exists

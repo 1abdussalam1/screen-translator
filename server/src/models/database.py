@@ -35,6 +35,7 @@ class APIKey(Base):
     last_used_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     rate_limit = Column(Integer, default=60, nullable=False)
+    raw_key = Column(Text, nullable=True)
 
     user = relationship("User", back_populates="api_keys")
     usage_logs = relationship("UsageLog", back_populates="api_key", lazy="select")
