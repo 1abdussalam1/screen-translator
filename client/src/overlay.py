@@ -1,9 +1,9 @@
 import logging
 from PyQt6.QtWidgets import QWidget, QApplication
 from PyQt6.QtCore import (
-    Qt, QRect, QPoint, QSize, pyqtSignal, QRegion
+    Qt, QRect, QPoint, QSize, pyqtSignal
 )
-from PyQt6.QtGui import QPainter, QColor, QPen, QBrush, QCursor
+from PyQt6.QtGui import QPainter, QColor, QPen, QBrush, QCursor, QRegion
 
 logger = logging.getLogger(__name__)
 
