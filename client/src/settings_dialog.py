@@ -365,36 +365,57 @@ class SettingsDialog(QDialog):
             self._font_family_label.setText(font.family())
 
     def _test_connection(self) -> None:
-        if self._api_client is None:
-            self._conn_status_label.setText('لا يوجد عميل API')
-            return
-        self._conn_status_label.setText('جاري الاختبار...')
+        self._conn_status_label.setStyleSheet('color: gray;')
+        self._conn_status_label.setText('⏳ جاري الاختبار...')
 
-        # Update client settings from form
-        self._api_client.server_url = self._server_url_edit.text().rstrip('/')
-        self._api_client.api_key = self._api_key_edit.text()
+        server_url = self._server_url_edit.text().rstrip('/')
+        api_key    = self._api_key_edit.text().strip()
 
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                import concurrent.futures
-                future = asyncio.run_coroutine_threadsafe(
-                    self._api_client.health_check(), loop
-                )
-                result = future.result(timeout=10)
-            else:
-                result = loop.run_until_complete(self._api_client.health_check())
+        # Run in background thread so UI never freezes
+        import threading, httpx
 
-            status = result.get('status', 'unknown')
-            if status == 'ok' or status == 'healthy':
-                self._conn_status_label.setStyleSheet('color: green;')
-                self._conn_status_label.setText('✓ الاتصال ناجح')
-            else:
-                self._conn_status_label.setStyleSheet('color: red;')
-                self._conn_status_label.setText(f'✗ {result.get("message", status)}')
-        except Exception as e:
-            self._conn_status_label.setStyleSheet('color: red;')
-            self._conn_status_label.setText(f'✗ خطأ: {e}')
+        def _run():
+            try:
+                # 1) health check — no auth needed
+                r = httpx.get(f"{server_url}/api/v1/health", timeout=8)
+                if r.status_code != 200:
+                    _done(False, f'السيرفر أعاد كود {r.status_code}')
+                    return
+                data = r.json()
+                if data.get('ollama_status') != 'online':
+                    _done(False, 'السيرفر متصل لكن Ollama غير متاح')
+                    return
+
+                # 2) validate API key if provided
+                if api_key:
+                    r2 = httpx.post(
+                        f"{server_url}/api/v1/auth/validate",
+                        json={"api_key": api_key},
+                        timeout=8,
+                    )
+                    if r2.status_code == 200 and r2.json().get('valid'):
+                        user = r2.json().get('user', '')
+                        _done(True, f'✓ متصل — مرحباً {user}')
+                    else:
+                        _done(False, '✗ مفتاح API غير صحيح أو منتهي')
+                else:
+                    _done(True, '✓ السيرفر متصل (لم يتم إدخال API Key)')
+
+            except httpx.ConnectError:
+                _done(False, '✗ تعذر الوصول للسيرفر — تحقق من الرابط')
+            except httpx.TimeoutException:
+                _done(False, '✗ انتهت مهلة الاتصال')
+            except Exception as e:
+                _done(False, f'✗ خطأ: {e}')
+
+        def _done(success: bool, msg: str):
+            # Must update UI from main thread
+            from PyQt6.QtCore import QMetaObject, Qt, Q_ARG
+            color = 'green' if success else 'red'
+            self._conn_status_label.setStyleSheet(f'color: {color};')
+            self._conn_status_label.setText(msg)
+
+        threading.Thread(target=_run, daemon=True).start()
 
     def _fetch_models(self) -> None:
         """Fetch available Ollama models from server."""
