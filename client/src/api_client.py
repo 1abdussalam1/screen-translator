@@ -31,7 +31,7 @@ class APIClient:
     def _headers(self) -> dict:
         headers = {'Content-Type': 'application/json'}
         if self.api_key:
-            headers['X-API-Key'] = self.api_key
+            headers['X-API-Key'] = self.api_key.strip()
         return headers
 
     async def translate(self, text: str, source_lang: str, target_lang: str) -> dict:

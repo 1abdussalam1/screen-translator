@@ -443,7 +443,7 @@ class SettingsDialog(QDialog):
         """Collect all settings and store in _config, then accept."""
         # Connection
         self._config['server_url'] = self._server_url_edit.text().strip()
-        self._config['api_key'] = self._api_key_edit.text()
+        self._config['api_key'] = self._api_key_edit.text().strip()
         if self._model_combo.count() > 0 and not self._model_combo.currentText().startswith('خطأ'):
             self._config['ollama_model'] = self._model_combo.currentText()
 
