@@ -36,6 +36,8 @@ jobs:
             --windowed `
             --onedir `
             --clean `
+            --paths src `
+            --add-data "src;." `
             --hidden-import PyQt6.QtCore `
             --hidden-import PyQt6.QtGui `
             --hidden-import PyQt6.QtWidgets `
@@ -44,6 +46,16 @@ jobs:
             --hidden-import PIL `
             --hidden-import httpx `
             --hidden-import sqlite3 `
+            --hidden-import config `
+            --hidden-import translation_cache `
+            --hidden-import api_client `
+            --hidden-import capture_engine `
+            --hidden-import overlay `
+            --hidden-import translation_panel `
+            --hidden-import settings_dialog `
+            --hidden-import auto_updater `
+            --hidden-import text_diff `
+            --collect-submodules ocr `
             src/main.py
 
       - name: Create ZIP

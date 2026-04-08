@@ -4,8 +4,12 @@ import asyncio
 import logging
 from pathlib import Path
 
-# Ensure src directory is on path
-_src_dir = Path(__file__).parent
+# Ensure src directory is on path (works both in dev and PyInstaller bundle)
+if getattr(sys, 'frozen', False):
+    # Running as PyInstaller bundle
+    _src_dir = Path(sys._MEIPASS)
+else:
+    _src_dir = Path(__file__).parent
 if str(_src_dir) not in sys.path:
     sys.path.insert(0, str(_src_dir))
 
