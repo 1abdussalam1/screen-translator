@@ -16,6 +16,12 @@ def _get_secret_key() -> str:
 
 OLLAMA_URL: str = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL: str = os.environ.get("OLLAMA_MODEL", "aya-expanse:8b")
+
+# LLM Provider: "ollama" or "openrouter"
+LLM_PROVIDER: str = os.environ.get("LLM_PROVIDER", "ollama")
+OPENROUTER_API_KEY: str = os.environ.get("OPENROUTER_API_KEY", "")
+OPENROUTER_BASE_URL: str = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+OPENROUTER_MODEL: str = os.environ.get("OPENROUTER_MODEL", "google/gemma-3-1b-it:free")
 DATABASE_URL: str = os.environ.get(
     "DATABASE_URL", "sqlite+aiosqlite:///./screen_translator.db"
 )

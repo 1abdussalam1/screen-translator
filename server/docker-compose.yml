@@ -57,9 +57,13 @@ services:
       - SECRET_KEY=${SECRET_KEY:-change-this-to-a-random-secret-in-production}
       - ADMIN_SESSION_EXPIRE_HOURS=${ADMIN_SESSION_EXPIRE_HOURS:-24}
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-google/gemma-3-1b-it:free}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      test: ["CMD-SHELL", "python -c \"import httpx; r=httpx.get('http://localhost:8000/api/v1/health',timeout=5); exit(0 if r.status_code==200 else 1)\""]
       interval: 30s
       timeout: 10s
       retries: 3

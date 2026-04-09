@@ -1,5 +1,5 @@
 import logging
-from typing import Tuple
+from typing import Tuple, List
 import httpx
 from .. import config
 
@@ -34,78 +34,151 @@ _DETECT_TRANSLATE_PROMPT = (
 )
 
 
+def _build_prompt(text: str, source_lang: str, target_lang: str) -> str:
+    if source_lang == "auto":
+        return _DETECT_TRANSLATE_PROMPT.format(target_lang=target_lang, text=text)
+    return _TRANSLATE_PROMPT.format(source_lang=source_lang, target_lang=target_lang, text=text)
+
+
 class OllamaService:
+    """Translation service supporting Ollama and OpenRouter backends."""
+
     def __init__(self):
-        self.base_url = config.OLLAMA_URL.rstrip("/")
-        self.model = config.OLLAMA_MODEL
+        self.provider = config.LLM_PROVIDER  # "ollama" or "openrouter"
+
+        # Ollama settings
+        self.ollama_url = config.OLLAMA_URL.rstrip("/")
+        self.ollama_model = config.OLLAMA_MODEL
+
+        # OpenRouter settings
+        self.openrouter_url = config.OPENROUTER_BASE_URL.rstrip("/")
+        self.openrouter_key = config.OPENROUTER_API_KEY
+        self.openrouter_model = config.OPENROUTER_MODEL
+
         self._client = httpx.AsyncClient(timeout=120.0)
 
+    @property
+    def model(self) -> str:
+        if self.provider == "openrouter":
+            return self.openrouter_model
+        return self.ollama_model
+
+    # ── Health ──────────────────────────────────────────────────────────
     async def check_health(self) -> bool:
         try:
-            resp = await self._client.get(f"{self.base_url}/api/tags")
-            return resp.status_code == 200
+            if self.provider == "openrouter":
+                resp = await self._client.get(
+                    f"{self.openrouter_url}/models",
+                    headers={"Authorization": f"Bearer {self.openrouter_key}"},
+                )
+                return resp.status_code == 200
+            else:
+                resp = await self._client.get(f"{self.ollama_url}/api/tags")
+                return resp.status_code == 200
         except Exception as exc:
-            logger.warning("Ollama health check failed: %s", exc)
+            logger.warning("Health check failed (%s): %s", self.provider, exc)
             return False
 
     async def is_model_loaded(self) -> bool:
         try:
-            resp = await self._client.get(f"{self.base_url}/api/tags")
+            if self.provider == "openrouter":
+                return True  # OpenRouter always has models available
+            resp = await self._client.get(f"{self.ollama_url}/api/tags")
             if resp.status_code != 200:
                 return False
             data = resp.json()
             models = [m.get("name", "") for m in data.get("models", [])]
-            return any(self.model in m for m in models)
+            return any(self.ollama_model in m for m in models)
         except Exception:
             return False
 
+    # ── List models ─────────────────────────────────────────────────────
+    async def list_models(self) -> List[str]:
+        try:
+            if self.provider == "openrouter":
+                resp = await self._client.get(
+                    f"{self.openrouter_url}/models",
+                    headers={"Authorization": f"Bearer {self.openrouter_key}"},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                return [m["id"] for m in data.get("data", [])]
+            else:
+                resp = await self._client.get(f"{self.ollama_url}/api/tags")
+                resp.raise_for_status()
+                data = resp.json()
+                return [m["name"] for m in data.get("models", [])]
+        except Exception as exc:
+            logger.error("Failed to list models (%s): %s", self.provider, exc)
+            return []
+
+    # ── Translate ───────────────────────────────────────────────────────
     async def translate(
         self,
         text: str,
         source_lang: str = "auto",
         target_lang: str = "Arabic",
     ) -> Tuple[str, int, int]:
-        """
-        Returns (translation, input_tokens, output_tokens).
-        """
-        if source_lang == "auto":
-            prompt = _DETECT_TRANSLATE_PROMPT.format(
-                target_lang=target_lang, text=text
-            )
-        else:
-            prompt = _TRANSLATE_PROMPT.format(
-                source_lang=source_lang, target_lang=target_lang, text=text
-            )
+        """Returns (translation, input_tokens, output_tokens)."""
+        prompt = _build_prompt(text, source_lang, target_lang)
 
+        if self.provider == "openrouter":
+            return await self._translate_openrouter(prompt)
+        return await self._translate_ollama(prompt)
+
+    async def _translate_ollama(self, prompt: str) -> Tuple[str, int, int]:
         payload = {
-            "model": self.model,
+            "model": self.ollama_model,
             "prompt": prompt,
             "stream": False,
-            "options": {
-                "temperature": 0.3,
-            },
+            "options": {"temperature": 0.3},
         }
+        try:
+            resp = await self._client.post(f"{self.ollama_url}/api/generate", json=payload)
+            resp.raise_for_status()
+        except httpx.ConnectError as exc:
+            raise RuntimeError(f"Cannot connect to Ollama at {self.ollama_url}") from exc
+        except httpx.HTTPStatusError as exc:
+            raise RuntimeError(f"Ollama error: {exc.response.text}") from exc
 
+        data = resp.json()
+        return (
+            data.get("response", "").strip(),
+            data.get("prompt_eval_count", 0),
+            data.get("eval_count", 0),
+        )
+
+    async def _translate_openrouter(self, prompt: str) -> Tuple[str, int, int]:
+        payload = {
+            "model": self.openrouter_model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.3,
+        }
+        headers = {
+            "Authorization": f"Bearer {self.openrouter_key}",
+            "Content-Type": "application/json",
+        }
         try:
             resp = await self._client.post(
-                f"{self.base_url}/api/generate", json=payload
+                f"{self.openrouter_url}/chat/completions",
+                json=payload,
+                headers=headers,
             )
             resp.raise_for_status()
         except httpx.ConnectError as exc:
-            logger.error("Cannot connect to Ollama at %s: %s", self.base_url, exc)
-            raise RuntimeError(
-                f"Cannot connect to Ollama service at {self.base_url}"
-            ) from exc
+            raise RuntimeError("Cannot connect to OpenRouter") from exc
         except httpx.HTTPStatusError as exc:
-            logger.error("Ollama HTTP error: %s", exc)
-            raise RuntimeError(f"Ollama returned error: {exc.response.text}") from exc
+            raise RuntimeError(f"OpenRouter error: {exc.response.text}") from exc
 
         data = resp.json()
-        translation = data.get("response", "").strip()
-        input_tokens = data.get("prompt_eval_count", 0)
-        output_tokens = data.get("eval_count", 0)
-
-        return translation, input_tokens, output_tokens
+        choices = data.get("choices", [])
+        translation = choices[0]["message"]["content"].strip() if choices else ""
+        usage = data.get("usage", {})
+        return (
+            translation,
+            usage.get("prompt_tokens", 0),
+            usage.get("completion_tokens", 0),
+        )
 
     async def close(self):
         await self._client.aclose()
