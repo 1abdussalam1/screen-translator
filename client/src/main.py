@@ -180,7 +180,9 @@ class ScreenTranslatorApp:
         # Start capture
         if self.ocr_engine:
             logger.info(f"OCR engine: {self.ocr_engine.name()}")
-            self.panel.set_translation(f'✅ جاهز - محرك OCR: {self.ocr_engine.name()}')
+            from config import CONFIG_FILE
+            if not CONFIG_FILE.exists():
+                self.panel.set_translation(f'✅ جاهز - محرك OCR: {self.ocr_engine.name()}')
             self.capture_engine.start()
         else:
             no_ocr_msg = '❌ لا يوجد محرك OCR! ثبّت Tesseract أو استخدم Windows 10+'

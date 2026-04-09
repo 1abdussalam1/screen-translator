@@ -109,7 +109,6 @@ class CaptureEngine(QObject):
         try:
             # 1. Capture
             self._set_state(CaptureState.CAPTURING)
-            self.status_message.emit('📸 جاري التقاط الشاشة...')
             region = self.config.get('capture_region', {})
             image = await asyncio.get_event_loop().run_in_executor(
                 None, self._capture_screen, region
@@ -121,20 +120,17 @@ class CaptureEngine(QObject):
 
             # 2. OCR
             self._set_state(CaptureState.OCR_RUNNING)
-            self.status_message.emit('🔍 جاري قراءة النص من الشاشة...')
             raw_text = await asyncio.get_event_loop().run_in_executor(
                 None, self._run_ocr, image
             )
             raw_text = (raw_text or '').strip()
 
             if not raw_text or len(raw_text) < 3:
-                self.status_message.emit('⏳ لا يوجد نص في المنطقة المحددة')
                 self._set_state(CaptureState.IDLE)
                 return
 
             # 2.5. Noise filter — skip garbage/symbols from OCR
             if self._text_diff.is_noise(raw_text):
-                self.status_message.emit('⏳ لا يوجد نص مقروء في المنطقة المحددة')
                 self._set_state(CaptureState.IDLE)
                 return
 
@@ -156,7 +152,6 @@ class CaptureEngine(QObject):
 
             # 5. API call
             self._set_state(CaptureState.TRANSLATING)
-            self.status_message.emit('🌐 جاري الترجمة...')
             source_lang = self.config.get('source_language', 'auto')
             try:
                 result = await self.api_client.translate(raw_text, source_lang, target_lang)

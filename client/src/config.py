@@ -5,7 +5,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-APP_VERSION = '1.0.0'
+APP_VERSION = '1.2.7'
 APP_NAME = 'Screen Translator'
 
 CONFIG_DIR = Path(os.environ.get('APPDATA', '~')) / 'ScreenTranslator'
