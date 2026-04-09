@@ -15,6 +15,8 @@ _TRANSLATE_PROMPT = (
     "- Preserve technical terms, proper nouns, code snippets, and formatting as-is.\n"
     "- Do NOT add explanations, notes, or anything besides the translation.\n"
     "- If the text contains UI labels or menu items, keep them concise.\n"
+    "- Ignore any random symbols, garbled characters, or OCR artifacts in the input.\n"
+    "- If the input is only symbols/garbage with no real words, respond with exactly: NO_TEXT\n"
     "- Output ONLY the translated text.\n\n"
     "Text to translate:\n{text}"
 )
@@ -29,6 +31,8 @@ _DETECT_TRANSLATE_PROMPT = (
     "- Preserve technical terms, proper nouns, code snippets, and formatting as-is.\n"
     "- Do NOT add explanations, notes, or anything besides the translation.\n"
     "- If the text contains UI labels or menu items, keep them concise.\n"
+    "- Ignore any random symbols, garbled characters, or OCR artifacts in the input.\n"
+    "- If the input is only symbols/garbage with no real words, respond with exactly: NO_TEXT\n"
     "- Output ONLY the translated text.\n\n"
     "Text to translate:\n{text}"
 )
@@ -142,8 +146,11 @@ class OllamaService:
             raise RuntimeError(f"Ollama error: {exc.response.text}") from exc
 
         data = resp.json()
+        response_text = data.get("response", "").strip()
+        if response_text == "NO_TEXT":
+            response_text = ""
         return (
-            data.get("response", "").strip(),
+            response_text,
             data.get("prompt_eval_count", 0),
             data.get("eval_count", 0),
         )

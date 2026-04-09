@@ -132,6 +132,12 @@ class CaptureEngine(QObject):
                 self._set_state(CaptureState.IDLE)
                 return
 
+            # 2.5. Noise filter — skip garbage/symbols from OCR
+            if self._text_diff.is_noise(raw_text):
+                self.status_message.emit('⏳ لا يوجد نص مقروء في المنطقة المحددة')
+                self._set_state(CaptureState.IDLE)
+                return
+
             # 3. Diff check
             if self._previous_text is not None:
                 if self._text_diff.is_same(self._previous_text, raw_text):
