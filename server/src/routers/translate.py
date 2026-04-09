@@ -52,6 +52,7 @@ async def translate(
             api_key_id=api_key.id,
             user_id=api_key.user_id,
             endpoint="/api/v1/translate",
+            model_override=body.model,
         )
     except RuntimeError as exc:
         raise HTTPException(

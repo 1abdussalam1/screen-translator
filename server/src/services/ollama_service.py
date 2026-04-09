@@ -125,17 +125,19 @@ class OllamaService:
         text: str,
         source_lang: str = "auto",
         target_lang: str = "Arabic",
+        model_override: str | None = None,
     ) -> Tuple[str, int, int]:
         """Returns (translation, input_tokens, output_tokens)."""
         prompt = _build_prompt(text, source_lang, target_lang)
 
         if self.provider == "openrouter":
-            return await self._translate_openrouter(prompt)
-        return await self._translate_ollama(prompt)
+            return await self._translate_openrouter(prompt, model_override)
+        return await self._translate_ollama(prompt, model_override)
 
-    async def _translate_ollama(self, prompt: str) -> Tuple[str, int, int]:
+    async def _translate_ollama(self, prompt: str, model_override: str | None = None) -> Tuple[str, int, int]:
+        model = model_override or self.ollama_model
         payload = {
-            "model": self.ollama_model,
+            "model": model,
             "prompt": prompt,
             "stream": False,
             "options": {"temperature": 0.3},
@@ -158,9 +160,10 @@ class OllamaService:
             data.get("eval_count", 0),
         )
 
-    async def _translate_openrouter(self, prompt: str) -> Tuple[str, int, int]:
+    async def _translate_openrouter(self, prompt: str, model_override: str | None = None) -> Tuple[str, int, int]:
+        model = model_override or self.openrouter_model
         payload = {
-            "model": self.openrouter_model,
+            "model": model,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.3,
         }

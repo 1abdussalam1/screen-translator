@@ -44,6 +44,7 @@ class APIClient:
         self.server_url = server_url.rstrip('/')
         self.api_key = api_key
         self.provider = 'server'  # 'server' or 'openrouter'
+        self.ollama_model = ''  # server model override
         self.openrouter_key = ''
         self.openrouter_model = 'google/gemma-3-1b-it:free'
         self._timeout = httpx.Timeout(30.0)
@@ -65,8 +66,10 @@ class APIClient:
         payload = {
             'text': text,
             'source_language': source_lang,
-            'target_language': target_lang
+            'target_language': target_lang,
         }
+        if self.ollama_model:
+            payload['model'] = self.ollama_model
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 response = await client.post(url, json=payload, headers=self._headers())

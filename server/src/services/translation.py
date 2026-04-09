@@ -84,6 +84,7 @@ async def translate_text(
     api_key_id: int,
     user_id: int,
     endpoint: str = "/api/v1/translate",
+    model_override: str | None = None,
 ) -> TranslateResponse:
     start_ms = time.monotonic() * 1000
 
@@ -91,6 +92,7 @@ async def translate_text(
         text=text,
         source_lang=source,
         target_lang=target,
+        model_override=model_override,
     )
 
     elapsed_ms = time.monotonic() * 1000 - start_ms
