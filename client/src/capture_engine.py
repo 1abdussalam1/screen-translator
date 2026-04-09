@@ -168,18 +168,16 @@ class CaptureEngine(QObject):
                 else:
                     logger.warning("Server returned empty translation, skipping.")
             except PermissionError as e:
-                self._show_error(f'🔑 {e}')
+                logger.warning(f"Permission error: {e}")
             except ConnectionError as e:
-                self._show_error(f'🔌 {e}')
+                logger.warning(f"Connection error: {e}")
             except TimeoutError as e:
-                self._show_error(f'⏰ {e}')
+                logger.warning(f"Timeout: {e}")
             except Exception as e:
                 logger.error(f"Translation error: {e}")
-                self._show_error(f'❌ خطأ في الترجمة: {e}')
 
         except Exception as e:
             logger.error(f"Capture pipeline error: {e}", exc_info=True)
-            self._show_error(f'❌ خطأ غير متوقع: {e}')
         finally:
             self._set_state(CaptureState.IDLE)
 
@@ -214,9 +212,8 @@ class CaptureEngine(QObject):
             self.on_translation_callback(text)
 
     def _show_error(self, message: str) -> None:
-        """Emit error signal and optionally call callback with error message."""
+        """Emit error signal only (no panel display)."""
         self.error_occurred.emit(message)
-        self._deliver_translation(message)
 
     @property
     def is_running(self) -> bool:

@@ -65,7 +65,7 @@ class APIClient:
         self.ollama_model = ''  # server model override
         self.openrouter_key = ''
         self.openrouter_model = 'google/gemma-3-1b-it:free'
-        self._timeout = httpx.Timeout(30.0)
+        self._timeout = httpx.Timeout(120.0)
 
     def _headers(self) -> dict:
         headers = {'Content-Type': 'application/json'}
