@@ -27,6 +27,7 @@ jobs:
           cd client
           pip install pyinstaller
           pip install PyQt6 mss pytesseract Pillow httpx qasync
+          pip install winrt-Windows.Media.Ocr winrt-Windows.Graphics.Imaging winrt-Windows.Globalization winrt-Windows.Storage.Streams
 
       - name: Build with PyInstaller
         run: |
@@ -57,6 +58,7 @@ jobs:
             --hidden-import text_diff `
             --hidden-import toggle_button `
             --collect-submodules ocr `
+            --collect-submodules winrt `
             src/main.py
 
       - name: Create ZIP
