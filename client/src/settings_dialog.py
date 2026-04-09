@@ -418,26 +418,39 @@ class SettingsDialog(QDialog):
         threading.Thread(target=_run, daemon=True).start()
 
     def _fetch_models(self) -> None:
-        """Fetch available Ollama models from server."""
-        if self._api_client is None:
-            return
-        self._api_client.server_url = self._server_url_edit.text().rstrip('/')
-        try:
-            import httpx
-            url = f"{self._api_client.server_url}/api/v1/models"
-            resp = httpx.get(url, timeout=10)
-            data = resp.json()
-            models = data.get('models', [])
+        """Fetch available Ollama models from server (background thread)."""
+        self._model_combo.clear()
+        self._model_combo.addItem('⏳ جاري التحميل...')
+
+        server_url = self._server_url_edit.text().rstrip('/')
+
+        import threading, httpx
+
+        def _run():
+            try:
+                url = f"{server_url}/api/v1/models"
+                resp = httpx.get(url, timeout=10)
+                data = resp.json()
+                models = data.get('models', [])
+                current = data.get('current_model', '')
+                _update_combo(models, current, None)
+            except Exception as e:
+                _update_combo([], '', str(e))
+
+        def _update_combo(models, current, error):
             self._model_combo.clear()
-            for m in models:
-                self._model_combo.addItem(m)
-            current = data.get('current_model', '')
-            idx = self._model_combo.findText(current)
-            if idx >= 0:
-                self._model_combo.setCurrentIndex(idx)
-        except Exception as e:
-            self._model_combo.clear()
-            self._model_combo.addItem(f'خطأ: {e}')
+            if error:
+                self._model_combo.addItem(f'خطأ: {error}')
+            elif models:
+                for m in models:
+                    self._model_combo.addItem(m)
+                idx = self._model_combo.findText(current)
+                if idx >= 0:
+                    self._model_combo.setCurrentIndex(idx)
+            else:
+                self._model_combo.addItem('لا توجد نماذج متاحة')
+
+        threading.Thread(target=_run, daemon=True).start()
 
     def _on_accept(self) -> None:
         """Collect all settings and store in _config, then accept."""

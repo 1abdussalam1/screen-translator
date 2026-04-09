@@ -6,17 +6,31 @@ from .. import config
 logger = logging.getLogger(__name__)
 
 _TRANSLATE_PROMPT = (
-    "You are a professional translator. "
-    "Translate the following text to {target_lang}. "
-    "Return ONLY the translation, no explanations, no notes.\n\n"
-    "{text}"
+    "You are an expert translator specializing in accurate, natural translations.\n"
+    "Source language: {source_lang}\n"
+    "Target language: {target_lang}\n\n"
+    "Rules:\n"
+    "- Translate the text accurately while keeping the meaning and tone.\n"
+    "- Use natural, fluent phrasing in the target language.\n"
+    "- Preserve technical terms, proper nouns, code snippets, and formatting as-is.\n"
+    "- Do NOT add explanations, notes, or anything besides the translation.\n"
+    "- If the text contains UI labels or menu items, keep them concise.\n"
+    "- Output ONLY the translated text.\n\n"
+    "Text to translate:\n{text}"
 )
 
 _DETECT_TRANSLATE_PROMPT = (
-    "You are a professional translator. "
-    "Detect the language of the following text and translate it to {target_lang}. "
-    "Return ONLY the translated text, nothing else.\n\n"
-    "{text}"
+    "You are an expert translator specializing in accurate, natural translations.\n"
+    "Target language: {target_lang}\n\n"
+    "Rules:\n"
+    "- First detect the source language of the text.\n"
+    "- Translate the text accurately while keeping the meaning and tone.\n"
+    "- Use natural, fluent phrasing in the target language.\n"
+    "- Preserve technical terms, proper nouns, code snippets, and formatting as-is.\n"
+    "- Do NOT add explanations, notes, or anything besides the translation.\n"
+    "- If the text contains UI labels or menu items, keep them concise.\n"
+    "- Output ONLY the translated text.\n\n"
+    "Text to translate:\n{text}"
 )
 
 
@@ -60,7 +74,7 @@ class OllamaService:
             )
         else:
             prompt = _TRANSLATE_PROMPT.format(
-                target_lang=target_lang, text=text
+                source_lang=source_lang, target_lang=target_lang, text=text
             )
 
         payload = {
