@@ -166,7 +166,7 @@ class CaptureEngine(QObject):
                     # 7. Deliver
                     self._deliver_translation(translated)
                 else:
-                    self.status_message.emit('⚠️ السيرفر رجّع رد فاضي - تأكد من الموديل')
+                    logger.warning("Server returned empty translation, skipping.")
             except PermissionError as e:
                 self._show_error(f'🔑 {e}')
             except ConnectionError as e:

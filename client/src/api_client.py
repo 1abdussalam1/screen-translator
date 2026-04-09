@@ -21,18 +21,33 @@ def _compare_versions(v1: str, v2: str) -> int:
 
 
 _DETECT_TRANSLATE_PROMPT = (
-    "You are an expert translator. "
-    "Target language: {target_lang}\n"
-    "Rules: Translate accurately, preserve technical terms and formatting. "
-    "Output ONLY the translated text.\n\n"
+    "You are a professional video game localizer specializing in {target_lang}.\n"
+    "Target language: {target_lang}\n\n"
+    "RULES:\n"
+    "1. Output ONLY in {target_lang}. No other language.\n"
+    "2. Input is plain text extracted via OCR from a game screenshot — no images, no visuals.\n"
+    "3. First detect the source language, then translate the MEANING and CONCEPT, not word-for-word.\n"
+    "   Use natural, fluent {target_lang} as a native game localizer would.\n"
+    "4. Use appropriate gaming vocabulary in {target_lang} (items, skills, quests, lore, dialogue).\n"
+    "5. IGNORE: separator lines (----, ====), lone numbers, HP/MP values, UI symbols/decorations.\n"
+    "6. Keep proper nouns (character names, place names) as-is.\n"
+    "7. If there is NO translatable text, respond with exactly: NO_TEXT\n"
+    "8. Output ONLY the translation — no explanations, no comments.\n\n"
     "Text:\n{text}"
 )
 
 _TRANSLATE_PROMPT = (
-    "You are an expert translator. "
-    "Source: {source_lang}, Target: {target_lang}\n"
-    "Rules: Translate accurately, preserve technical terms and formatting. "
-    "Output ONLY the translated text.\n\n"
+    "You are a professional video game localizer specializing in {target_lang}.\n"
+    "Source: {source_lang}, Target: {target_lang}\n\n"
+    "RULES:\n"
+    "1. Output ONLY in {target_lang}. No other language.\n"
+    "2. Input is plain text extracted via OCR from a game screenshot — no images, no visuals.\n"
+    "3. Translate the MEANING and CONCEPT, not word-for-word. Use natural, fluent {target_lang}.\n"
+    "4. Use appropriate gaming vocabulary in {target_lang} (items, skills, quests, lore, dialogue).\n"
+    "5. IGNORE: separator lines (----, ====), lone numbers, HP/MP values, UI symbols/decorations.\n"
+    "6. Keep proper nouns (character names, place names) as-is.\n"
+    "7. If there is NO translatable text, respond with exactly: NO_TEXT\n"
+    "8. Output ONLY the translation — no explanations, no comments.\n\n"
     "Text:\n{text}"
 )
 
