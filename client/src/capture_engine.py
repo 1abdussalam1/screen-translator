@@ -148,12 +148,12 @@ class CaptureEngine(QObject):
             source_lang = self.config.get('source_language', 'auto')
             try:
                 result = await self.api_client.translate(raw_text, source_lang, target_lang)
-                translated = result.get('translated_text', '')
+                translated = result.get('translation', '') or result.get('translated_text', '')
                 if translated:
                     # 6. Save to cache
                     self.translation_cache.put(
                         raw_text, translated,
-                        result.get('source_language', source_lang),
+                        result.get('source_language_detected', source_lang),
                         target_lang
                     )
                     # 7. Deliver
