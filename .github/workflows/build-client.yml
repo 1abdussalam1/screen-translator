@@ -55,6 +55,7 @@ jobs:
             --hidden-import settings_dialog `
             --hidden-import auto_updater `
             --hidden-import text_diff `
+            --hidden-import toggle_button `
             --collect-submodules ocr `
             src/main.py
 

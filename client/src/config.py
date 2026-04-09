@@ -26,7 +26,11 @@ DEFAULT_CONFIG = {
         'translation_bg_opacity': 0.8,
         'translation_text_color': '#FFFFFF',
         'translation_font_family': 'Arial',
-        'translation_font_size': 16
+        'translation_font_size': 16,
+        'translation_text_alignment': 'center',
+        'toggle_button_color': '#333333',
+        'toggle_button_opacity': 0.7,
+        'toggle_button_size': 32,
     },
     'capture_region': {
         'x': 100,

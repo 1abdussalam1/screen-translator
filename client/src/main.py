@@ -33,6 +33,7 @@ from overlay import CaptureOverlay
 from translation_panel import TranslationPanel
 from settings_dialog import SettingsDialog
 from auto_updater import AutoUpdater
+from toggle_button import FloatingToggleButton
 from config import CACHE_DB
 
 logger = logging.getLogger(__name__)
@@ -146,6 +147,11 @@ class ScreenTranslatorApp:
         self.panel.set_position_from_overlay(self.overlay)
         self.panel.show()
 
+        # Floating toggle button
+        self.toggle_btn = FloatingToggleButton(self.config)
+        self.toggle_btn.toggled.connect(self._on_toggle_button)
+        self.toggle_btn.show()
+
         # Capture engine
         self.capture_engine = CaptureEngine(
             config=self.config,
@@ -221,11 +227,25 @@ class ScreenTranslatorApp:
             self.overlay.hide()
             self.panel.hide()
             self._action_toggle_visibility.setText('إظهار')
+            self.toggle_btn.set_visible_state(False)
         else:
             self.overlay.show()
             self.panel.show()
             self.panel.set_position_from_overlay(self.overlay)
             self._action_toggle_visibility.setText('إخفاء')
+            self.toggle_btn.set_visible_state(True)
+
+    def _on_toggle_button(self, visible: bool) -> None:
+        """Called when the floating toggle button is clicked."""
+        if visible:
+            self.overlay.show()
+            self.panel.show()
+            self.panel.set_position_from_overlay(self.overlay)
+            self._action_toggle_visibility.setText('إخفاء')
+        else:
+            self.overlay.hide()
+            self.panel.hide()
+            self._action_toggle_visibility.setText('إظهار')
 
     def _toggle_pause(self) -> None:
         if self._paused:
@@ -281,6 +301,9 @@ class ScreenTranslatorApp:
         # Update panel appearance
         self.panel.update_style(appearance)
         self.panel.set_position_from_overlay(self.overlay)
+
+        # Update toggle button
+        self.toggle_btn.update_style(appearance)
 
         # Update region
         region = new_config.get('capture_region', {})

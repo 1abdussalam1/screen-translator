@@ -185,6 +185,47 @@ class SettingsDialog(QDialog):
         self._font_size_spin.setValue(int(appearance.get('translation_font_size', 16)))
         layout.addRow('حجم الخط:', self._font_size_spin)
 
+        # Text alignment
+        self._alignment_combo = QComboBox()
+        self._alignment_combo.addItem('وسط', 'center')
+        self._alignment_combo.addItem('يمين', 'right')
+        self._alignment_combo.addItem('يسار', 'left')
+        current_align = appearance.get('translation_text_alignment', 'center')
+        idx = self._alignment_combo.findData(current_align)
+        if idx >= 0:
+            self._alignment_combo.setCurrentIndex(idx)
+        layout.addRow('محاذاة النص:', self._alignment_combo)
+
+        # Toggle button settings
+        layout.addRow(QLabel(''))  # spacer
+        layout.addRow(QLabel('زر الإخفاء/الإظهار العائم:'))
+
+        self._toggle_btn_color_btn = QPushButton()
+        self._toggle_btn_color = appearance.get('toggle_button_color', '#333333')
+        self._toggle_btn_color_btn.setStyleSheet(_color_button_style(self._toggle_btn_color))
+        self._toggle_btn_color_btn.clicked.connect(lambda: self._pick_color('toggle_btn'))
+        layout.addRow('لون الزر:', self._toggle_btn_color_btn)
+
+        toggle_opacity_layout = QHBoxLayout()
+        self._toggle_opacity_slider = QSlider(Qt.Orientation.Horizontal)
+        self._toggle_opacity_slider.setRange(10, 100)
+        current_toggle_opacity = int(float(appearance.get('toggle_button_opacity', 0.7)) * 100)
+        self._toggle_opacity_slider.setValue(current_toggle_opacity)
+        self._toggle_opacity_label = QLabel(f'{current_toggle_opacity}%')
+        self._toggle_opacity_slider.valueChanged.connect(
+            lambda v: self._toggle_opacity_label.setText(f'{v}%')
+        )
+        toggle_opacity_layout.addWidget(self._toggle_opacity_slider)
+        toggle_opacity_layout.addWidget(self._toggle_opacity_label)
+        toggle_opacity_widget = QWidget()
+        toggle_opacity_widget.setLayout(toggle_opacity_layout)
+        layout.addRow('شفافية الزر:', toggle_opacity_widget)
+
+        self._toggle_size_spin = QSpinBox()
+        self._toggle_size_spin.setRange(20, 60)
+        self._toggle_size_spin.setValue(int(appearance.get('toggle_button_size', 32)))
+        layout.addRow('حجم الزر:', self._toggle_size_spin)
+
         return widget
 
     # ------------------------------------------------------------------ #
@@ -350,6 +391,7 @@ class SettingsDialog(QDialog):
             'border': (self._border_color, '_border_color', self._border_color_btn),
             'bg': (self._bg_color, '_bg_color', self._bg_color_btn),
             'text': (self._text_color, '_text_color', self._text_color_btn),
+            'toggle_btn': (self._toggle_btn_color, '_toggle_btn_color', self._toggle_btn_color_btn),
         }
         current_hex, attr, btn = mapping[target]
         color = QColorDialog.getColor(QColor(current_hex), self, 'اختر اللون')
@@ -468,6 +510,10 @@ class SettingsDialog(QDialog):
         self._config['appearance']['translation_text_color'] = self._text_color
         self._config['appearance']['translation_font_family'] = self._font_family_label.text()
         self._config['appearance']['translation_font_size'] = self._font_size_spin.value()
+        self._config['appearance']['translation_text_alignment'] = self._alignment_combo.currentData()
+        self._config['appearance']['toggle_button_color'] = self._toggle_btn_color
+        self._config['appearance']['toggle_button_opacity'] = self._toggle_opacity_slider.value() / 100.0
+        self._config['appearance']['toggle_button_size'] = self._toggle_size_spin.value()
 
         # Behavior
         self._config['capture_interval_seconds'] = self._interval_slider.value()

@@ -59,6 +59,15 @@ class TranslationPanel(QWidget):
         self._font_family = appearance.get('translation_font_family', 'Arial')
         self._font_size = int(appearance.get('translation_font_size', 16))
 
+        # Text alignment
+        alignment = appearance.get('translation_text_alignment', 'center')
+        align_map = {
+            'right': Qt.AlignmentFlag.AlignRight,
+            'center': Qt.AlignmentFlag.AlignHCenter,
+            'left': Qt.AlignmentFlag.AlignLeft,
+        }
+        self._label.setAlignment(align_map.get(alignment, Qt.AlignmentFlag.AlignHCenter) | Qt.AlignmentFlag.AlignVCenter)
+
         font = QFont(self._font_family, self._font_size)
         self._label.setFont(font)
         self._label.setStyleSheet(f'color: {text_hex}; background: transparent;')
