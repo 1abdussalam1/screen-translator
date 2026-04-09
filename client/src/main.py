@@ -166,6 +166,7 @@ class ScreenTranslatorApp:
         )
         self.capture_engine.translation_ready.connect(self._on_translation)
         self.capture_engine.status_changed.connect(self._on_status_changed)
+        self.capture_engine.status_message.connect(self._on_status_message)
         self.capture_engine.error_occurred.connect(self._on_error)
 
         # System tray
@@ -177,8 +178,13 @@ class ScreenTranslatorApp:
 
         # Start capture
         if self.ocr_engine:
+            logger.info(f"OCR engine: {self.ocr_engine.name()}")
+            self.panel.set_translation(f'✅ جاهز - محرك OCR: {self.ocr_engine.name()}')
             self.capture_engine.start()
         else:
+            no_ocr_msg = '❌ لا يوجد محرك OCR! ثبّت Tesseract أو استخدم Windows 10+'
+            logger.error(no_ocr_msg)
+            self.panel.set_translation(no_ocr_msg)
             self._show_tray_message(
                 'تحذير',
                 'لم يتم العثور على محرك OCR. يرجى تثبيت Tesseract.',
@@ -332,6 +338,11 @@ class ScreenTranslatorApp:
         self.capture_engine.update_config(self.config)
         self.panel.set_position_from_overlay(self.overlay)
         save_config(self.config)
+
+    def _on_status_message(self, message: str) -> None:
+        """Show pipeline status in the translation panel."""
+        self.panel.set_translation(message)
+        self.panel.set_position_from_overlay(self.overlay)
 
     def _on_translation(self, text: str) -> None:
         self.panel.set_translation(text)

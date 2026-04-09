@@ -26,6 +26,7 @@ class CaptureEngine(QObject):
     """Main pipeline: capture -> OCR -> diff check -> cache -> API -> display."""
 
     status_changed = pyqtSignal(str)        # CaptureState value
+    status_message = pyqtSignal(str)         # human-readable status for panel
     translation_ready = pyqtSignal(str)      # translated text
     error_occurred = pyqtSignal(str)         # error message
 
@@ -108,22 +109,26 @@ class CaptureEngine(QObject):
         try:
             # 1. Capture
             self._set_state(CaptureState.CAPTURING)
+            self.status_message.emit('📸 جاري التقاط الشاشة...')
             region = self.config.get('capture_region', {})
             image = await asyncio.get_event_loop().run_in_executor(
                 None, self._capture_screen, region
             )
             if image is None:
+                self.status_message.emit('⚠️ فشل التقاط الشاشة')
                 self._set_state(CaptureState.IDLE)
                 return
 
             # 2. OCR
             self._set_state(CaptureState.OCR_RUNNING)
+            self.status_message.emit('🔍 جاري قراءة النص من الشاشة...')
             raw_text = await asyncio.get_event_loop().run_in_executor(
                 None, self._run_ocr, image
             )
             raw_text = (raw_text or '').strip()
 
             if not raw_text or len(raw_text) < 3:
+                self.status_message.emit('⏳ لا يوجد نص في المنطقة المحددة')
                 self._set_state(CaptureState.IDLE)
                 return
 
@@ -145,6 +150,7 @@ class CaptureEngine(QObject):
 
             # 5. API call
             self._set_state(CaptureState.TRANSLATING)
+            self.status_message.emit('🌐 جاري الترجمة...')
             source_lang = self.config.get('source_language', 'auto')
             try:
                 result = await self.api_client.translate(raw_text, source_lang, target_lang)
@@ -158,19 +164,21 @@ class CaptureEngine(QObject):
                     )
                     # 7. Deliver
                     self._deliver_translation(translated)
+                else:
+                    self.status_message.emit('⚠️ السيرفر رجّع رد فاضي - تأكد من الموديل')
             except PermissionError as e:
-                self._show_error(str(e))
+                self._show_error(f'🔑 {e}')
             except ConnectionError as e:
-                self._show_error(str(e))
+                self._show_error(f'🔌 {e}')
             except TimeoutError as e:
-                self._show_error(str(e))
+                self._show_error(f'⏰ {e}')
             except Exception as e:
                 logger.error(f"Translation error: {e}")
-                self._show_error(f"خطأ في الترجمة: {e}")
+                self._show_error(f'❌ خطأ في الترجمة: {e}')
 
         except Exception as e:
             logger.error(f"Capture pipeline error: {e}", exc_info=True)
-            self._show_error(f"خطأ غير متوقع: {e}")
+            self._show_error(f'❌ خطأ غير متوقع: {e}')
         finally:
             self._set_state(CaptureState.IDLE)
 
