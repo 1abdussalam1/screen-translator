@@ -22,6 +22,18 @@ class TextDiff:
         text = re.sub(r'\s+', ' ', text)
         return text.strip()
 
+    # Single scattered characters pattern (e.g. "a  x  7  m" — OCR misreading an image)
+    _SCATTERED_RE = re.compile(r'^(\S\s+){3,}\S?$')
+
+    # Only numbers/punctuation, no real words (e.g. "12 34 56 - 78")
+    _NUMBERS_ONLY_RE = re.compile(r'^[\d\s\-+.,/:;=*#%()]+$')
+
+    @staticmethod
+    def _has_real_word(text: str, min_word_len: int = 2) -> bool:
+        """Check if text contains at least one real word (2+ letters)."""
+        words = re.findall(r'[a-zA-Z\u0600-\u06FF\u0750-\u077F\u4E00-\u9FFF\u0400-\u04FF]{2,}', text)
+        return len(words) > 0
+
     @staticmethod
     def is_noise(text: str) -> bool:
         """Return True if text is likely OCR noise, not real readable text."""
@@ -36,14 +48,21 @@ class TextDiff:
 
         real_lines = 0
         for line in lines:
-            # Skip lines that are just repeated/decorative chars
             if TextDiff._DECORATIVE_RE.match(line):
                 continue
             if TextDiff._REPEATED_CHAR_RE.match(line):
                 continue
+            if TextDiff._NUMBERS_ONLY_RE.match(line):
+                continue
+            if TextDiff._SCATTERED_RE.match(line):
+                continue
             real_lines += 1
 
         if real_lines == 0:
+            return True
+
+        # Must contain at least one real word (2+ consecutive letters)
+        if not TextDiff._has_real_word(stripped):
             return True
 
         # After normalize, check alpha ratio
