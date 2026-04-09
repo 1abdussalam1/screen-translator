@@ -84,15 +84,66 @@ class SettingsDialog(QDialog):
         layout = QFormLayout(widget)
         layout.setContentsMargins(16, 16, 16, 16)
 
+        # Provider selector
+        self._provider_combo = QComboBox()
+        self._provider_combo.addItem('خادم خاص (Ollama)', 'server')
+        self._provider_combo.addItem('OpenRouter', 'openrouter')
+        current_provider = self._config.get('provider', 'server')
+        idx = self._provider_combo.findData(current_provider)
+        if idx >= 0:
+            self._provider_combo.setCurrentIndex(idx)
+        self._provider_combo.currentIndexChanged.connect(self._on_provider_changed)
+        layout.addRow('مزود الترجمة:', self._provider_combo)
+
+        # ── Server settings ──
+        self._server_group = QGroupBox('إعدادات الخادم')
+        server_layout = QFormLayout(self._server_group)
+
         self._server_url_edit = QLineEdit(self._config.get('server_url', ''))
         self._server_url_edit.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        layout.addRow('رابط الخادم:', self._server_url_edit)
+        server_layout.addRow('رابط الخادم:', self._server_url_edit)
 
         self._api_key_edit = QLineEdit(self._config.get('api_key', ''))
         self._api_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
         self._api_key_edit.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        layout.addRow('مفتاح API:', self._api_key_edit)
+        server_layout.addRow('مفتاح API:', self._api_key_edit)
 
+        layout.addRow(self._server_group)
+
+        # ── OpenRouter settings ──
+        self._openrouter_group = QGroupBox('إعدادات OpenRouter')
+        or_layout = QFormLayout(self._openrouter_group)
+
+        or_config = self._config.get('openrouter', {})
+
+        self._or_key_edit = QLineEdit(or_config.get('api_key', ''))
+        self._or_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self._or_key_edit.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        self._or_key_edit.setPlaceholderText('sk-or-...')
+        or_layout.addRow('مفتاح OpenRouter:', self._or_key_edit)
+
+        self._or_model_edit = QLineEdit(or_config.get('model', 'google/gemma-3-1b-it:free'))
+        self._or_model_edit.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        or_layout.addRow('الموديل:', self._or_model_edit)
+
+        or_models_btn = QPushButton('تحديث قائمة النماذج')
+        or_models_btn.clicked.connect(self._fetch_openrouter_models)
+        or_layout.addRow('', or_models_btn)
+
+        self._or_models_combo = QComboBox()
+        self._or_models_combo.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        self._or_models_combo.setEditable(True)
+        current_or_model = or_config.get('model', '')
+        if current_or_model:
+            self._or_models_combo.addItem(current_or_model)
+        self._or_models_combo.currentTextChanged.connect(
+            lambda t: self._or_model_edit.setText(t)
+        )
+        or_layout.addRow('أو اختر من القائمة:', self._or_models_combo)
+
+        layout.addRow(self._openrouter_group)
+
+        # ── Connection test ──
         test_btn = QPushButton('اختبار الاتصال')
         test_btn.clicked.connect(self._test_connection)
         layout.addRow('', test_btn)
@@ -101,19 +152,74 @@ class SettingsDialog(QDialog):
         self._conn_status_label.setWordWrap(True)
         layout.addRow('الحالة:', self._conn_status_label)
 
-        # Model selector
+        # Model selector (for server mode)
         self._model_combo = QComboBox()
         self._model_combo.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         current_model = self._config.get('ollama_model', '')
         if current_model:
             self._model_combo.addItem(current_model)
-        layout.addRow('نموذج الترجمة:', self._model_combo)
+        layout.addRow('نموذج الخادم:', self._model_combo)
 
         fetch_btn = QPushButton('تحديث قائمة النماذج')
         fetch_btn.clicked.connect(self._fetch_models)
         layout.addRow('', fetch_btn)
 
+        # Show/hide based on provider
+        self._on_provider_changed()
+
         return widget
+
+    def _on_provider_changed(self) -> None:
+        is_server = self._provider_combo.currentData() == 'server'
+        self._server_group.setVisible(is_server)
+        self._openrouter_group.setVisible(not is_server)
+        self._model_combo.setVisible(is_server)
+        # Find and hide the fetch button and model label for server
+        # They share the same parent layout so we just control visibility
+
+    def _fetch_openrouter_models(self) -> None:
+        api_key = self._or_key_edit.text().strip()
+        if not api_key:
+            self._or_models_combo.clear()
+            self._or_models_combo.addItem('أدخل مفتاح OpenRouter أولاً')
+            return
+
+        self._or_models_combo.clear()
+        self._or_models_combo.addItem('⏳ جاري التحميل...')
+
+        import threading, httpx
+
+        def _run():
+            try:
+                resp = httpx.get(
+                    'https://openrouter.ai/api/v1/models',
+                    headers={'Authorization': f'Bearer {api_key}'},
+                    timeout=15,
+                )
+                data = resp.json()
+                models = []
+                for m in data.get('data', []):
+                    model_id = m.get('id', '')
+                    # Show free models first
+                    if ':free' in model_id:
+                        models.insert(0, model_id)
+                    else:
+                        models.append(model_id)
+                _update(models, None)
+            except Exception as e:
+                _update([], str(e))
+
+        def _update(models, error):
+            self._or_models_combo.clear()
+            if error:
+                self._or_models_combo.addItem(f'خطأ: {error}')
+            elif models:
+                for m in models:
+                    self._or_models_combo.addItem(m)
+            else:
+                self._or_models_combo.addItem('لا توجد نماذج')
+
+        threading.Thread(target=_run, daemon=True).start()
 
     # ------------------------------------------------------------------ #
     #  Tab 2: Appearance
@@ -497,10 +603,17 @@ class SettingsDialog(QDialog):
     def _on_accept(self) -> None:
         """Collect all settings and store in _config, then accept."""
         # Connection
+        self._config['provider'] = self._provider_combo.currentData()
         self._config['server_url'] = self._server_url_edit.text().strip()
         self._config['api_key'] = self._api_key_edit.text().strip()
         if self._model_combo.count() > 0 and not self._model_combo.currentText().startswith('خطأ'):
             self._config['ollama_model'] = self._model_combo.currentText()
+
+        # OpenRouter
+        self._config['openrouter'] = {
+            'api_key': self._or_key_edit.text().strip(),
+            'model': self._or_model_edit.text().strip(),
+        }
 
         # Appearance
         self._config['appearance']['capture_border_color'] = self._border_color

@@ -13,8 +13,13 @@ CONFIG_FILE = CONFIG_DIR / 'config.json'
 CACHE_DB = CONFIG_DIR / 'cache.db'
 
 DEFAULT_CONFIG = {
+    'provider': 'server',
     'server_url': 'https://translate.example.com',
     'api_key': '',
+    'openrouter': {
+        'api_key': '',
+        'model': 'google/gemma-3-1b-it:free',
+    },
     'source_language': 'auto',
     'target_language': 'ar',
     'capture_interval_seconds': 2,

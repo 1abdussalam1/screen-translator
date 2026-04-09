@@ -20,12 +20,32 @@ def _compare_versions(v1: str, v2: str) -> int:
     return 0
 
 
+_DETECT_TRANSLATE_PROMPT = (
+    "You are an expert translator. "
+    "Target language: {target_lang}\n"
+    "Rules: Translate accurately, preserve technical terms and formatting. "
+    "Output ONLY the translated text.\n\n"
+    "Text:\n{text}"
+)
+
+_TRANSLATE_PROMPT = (
+    "You are an expert translator. "
+    "Source: {source_lang}, Target: {target_lang}\n"
+    "Rules: Translate accurately, preserve technical terms and formatting. "
+    "Output ONLY the translated text.\n\n"
+    "Text:\n{text}"
+)
+
+
 class APIClient:
-    """Async HTTP client for the translation server."""
+    """Async HTTP client supporting both server and OpenRouter backends."""
 
     def __init__(self, server_url: str, api_key: str):
         self.server_url = server_url.rstrip('/')
         self.api_key = api_key
+        self.provider = 'server'  # 'server' or 'openrouter'
+        self.openrouter_key = ''
+        self.openrouter_model = 'google/gemma-3-1b-it:free'
         self._timeout = httpx.Timeout(30.0)
 
     def _headers(self) -> dict:
@@ -35,7 +55,12 @@ class APIClient:
         return headers
 
     async def translate(self, text: str, source_lang: str, target_lang: str) -> dict:
-        """POST /api/v1/translate — returns {'translated_text': '...', 'source_language': '...'}"""
+        if self.provider == 'openrouter':
+            return await self._translate_openrouter(text, source_lang, target_lang)
+        return await self._translate_server(text, source_lang, target_lang)
+
+    async def _translate_server(self, text: str, source_lang: str, target_lang: str) -> dict:
+        """POST /api/v1/translate via our server."""
         url = f"{self.server_url}/api/v1/translate"
         payload = {
             'text': text,
@@ -57,6 +82,51 @@ class APIClient:
             raise ConnectionError("تعذّر الاتصال بالخادم")
         except httpx.TimeoutException:
             raise TimeoutError("انتهت مهلة الاتصال بالخادم")
+
+    async def _translate_openrouter(self, text: str, source_lang: str, target_lang: str) -> dict:
+        """Translate directly via OpenRouter API."""
+        if source_lang == 'auto':
+            prompt = _DETECT_TRANSLATE_PROMPT.format(target_lang=target_lang, text=text)
+        else:
+            prompt = _TRANSLATE_PROMPT.format(source_lang=source_lang, target_lang=target_lang, text=text)
+
+        payload = {
+            'model': self.openrouter_model,
+            'messages': [{'role': 'user', 'content': prompt}],
+            'temperature': 0.3,
+        }
+        headers = {
+            'Authorization': f'Bearer {self.openrouter_key}',
+            'Content-Type': 'application/json',
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.post(
+                    'https://openrouter.ai/api/v1/chat/completions',
+                    json=payload,
+                    headers=headers,
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    choices = data.get('choices', [])
+                    translation = choices[0]['message']['content'].strip() if choices else ''
+                    usage = data.get('usage', {})
+                    return {
+                        'translation': translation,
+                        'source_language_detected': source_lang,
+                        'tokens_used': usage.get('prompt_tokens', 0) + usage.get('completion_tokens', 0),
+                        'processing_time_ms': 0,
+                    }
+                elif response.status_code == 401:
+                    raise PermissionError("مفتاح OpenRouter غير صالح")
+                elif response.status_code == 429:
+                    raise ConnectionAbortedError("تم تجاوز حد الطلبات")
+                else:
+                    raise RuntimeError(f"خطأ OpenRouter: {response.status_code}")
+        except httpx.ConnectError:
+            raise ConnectionError("تعذّر الاتصال بـ OpenRouter")
+        except httpx.TimeoutException:
+            raise TimeoutError("انتهت مهلة الاتصال بـ OpenRouter")
 
     async def validate_key(self) -> dict:
         """POST /api/v1/auth/validate — validates the API key."""

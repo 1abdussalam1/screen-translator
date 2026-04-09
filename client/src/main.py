@@ -131,6 +131,10 @@ class ScreenTranslatorApp:
             server_url=self.config.get('server_url', ''),
             api_key=self.config.get('api_key', '')
         )
+        self.api_client.provider = self.config.get('provider', 'server')
+        or_config = self.config.get('openrouter', {})
+        self.api_client.openrouter_key = or_config.get('api_key', '')
+        self.api_client.openrouter_model = or_config.get('model', 'google/gemma-3-1b-it:free')
 
         # OCR engine
         self.ocr_engine = _make_ocr_engine(self.config)
@@ -277,6 +281,10 @@ class ScreenTranslatorApp:
         # Update API client
         self.api_client.server_url = new_config.get('server_url', '').rstrip('/')
         self.api_client.api_key = new_config.get('api_key', '')
+        self.api_client.provider = new_config.get('provider', 'server')
+        or_config = new_config.get('openrouter', {})
+        self.api_client.openrouter_key = or_config.get('api_key', '')
+        self.api_client.openrouter_model = or_config.get('model', '')
 
         # Update cache
         cache_cfg = new_config.get('cache', {})
