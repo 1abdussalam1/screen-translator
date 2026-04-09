@@ -218,6 +218,8 @@ class APIClient:
         suffix = '.exe'
         if download_url.endswith('.msi'):
             suffix = '.msi'
+        elif download_url.endswith('.zip'):
+            suffix = '.zip'
 
         tmp_fd, tmp_path = tempfile.mkstemp(suffix=suffix, prefix='screen_translator_update_')
         os.close(tmp_fd)

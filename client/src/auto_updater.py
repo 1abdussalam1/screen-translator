@@ -220,15 +220,70 @@ class AutoUpdater(QObject):
             return
 
         if installer_path:
-            logger.info(f"Launching installer: {installer_path}")
+            logger.info(f"Applying update: {installer_path}")
             try:
-                subprocess.Popen([installer_path], shell=True)
-                sys.exit(0)
+                if installer_path.endswith('.zip'):
+                    self._apply_zip_update(installer_path)
+                else:
+                    subprocess.Popen([installer_path], shell=True)
+                    sys.exit(0)
             except Exception as e:
-                logger.error(f"Failed to launch installer: {e}")
+                logger.error(f"Failed to apply update: {e}")
                 from PyQt6.QtWidgets import QMessageBox
                 QMessageBox.critical(
                     parent_widget,
                     'خطأ',
-                    f'فشل تشغيل المثبّت:\n{e}'
+                    f'فشل تطبيق التحديث:\n{e}'
                 )
+
+    def _apply_zip_update(self, zip_path: str) -> None:
+        """Extract ZIP update and replace current installation via batch script."""
+        import zipfile
+        import tempfile
+        from pathlib import Path
+
+        # Determine current app directory
+        if getattr(sys, 'frozen', False):
+            app_dir = Path(sys.executable).parent          # .../ScreenTranslator/
+            install_parent = app_dir.parent                # parent folder
+            app_folder_name = app_dir.name
+        else:
+            app_dir = Path(sys.argv[0]).parent
+            install_parent = app_dir.parent
+            app_folder_name = 'ScreenTranslator'
+
+        # Extract ZIP to temp directory
+        extract_dir = Path(tempfile.mkdtemp(prefix='st_update_'))
+        logger.info(f"Extracting to {extract_dir}")
+        with zipfile.ZipFile(zip_path, 'r') as z:
+            z.extractall(extract_dir)
+
+        # Find extracted folder (should be ScreenTranslator/)
+        new_app_dir = extract_dir / app_folder_name
+        if not new_app_dir.exists():
+            # Try first subfolder
+            subdirs = [d for d in extract_dir.iterdir() if d.is_dir()]
+            if subdirs:
+                new_app_dir = subdirs[0]
+
+        exe_path = app_dir / 'ScreenTranslator.exe'
+
+        # Create batch script: wait for app exit → replace → restart
+        bat_content = (
+            '@echo off\n'
+            'timeout /t 2 /nobreak > NUL\n'
+            f'xcopy /E /Y /I "{new_app_dir}" "{app_dir}"\n'
+            f'start "" "{exe_path}"\n'
+            'del "%~f0"\n'
+        )
+        bat_fd, bat_path = tempfile.mkstemp(suffix='.bat', prefix='st_update_')
+        import os
+        os.close(bat_fd)
+        with open(bat_path, 'w', encoding='utf-8') as f:
+            f.write(bat_content)
+
+        logger.info(f"Launching updater batch: {bat_path}")
+        subprocess.Popen(['cmd', '/c', bat_path],
+                         creationflags=subprocess.CREATE_NEW_CONSOLE,
+                         close_fds=True)
+        sys.exit(0)

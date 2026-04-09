@@ -1,7 +1,7 @@
 {
-  "version": "1.2.7",
-  "download_url": "https://github.com/1abdussalam1/screen-translator/releases/download/v1.2.7/ScreenTranslatorSetup.exe",
-  "release_notes": "تحسين جودة الترجمة وإزالة الرسائل المزعجة",
-  "released_at": "2026-04-09T19:48:00Z",
+  "version": "1.2.8",
+  "download_url": "https://github.com/1abdussalam1/screen-translator/releases/download/v1.2.8/ScreenTranslator-Windows.zip",
+  "release_notes": "إصلاح التحديث التلقائي + تحسين جودة الترجمة",
+  "released_at": "2026-04-09T20:06:00Z",
   "min_version": "1.0.0"
 }
