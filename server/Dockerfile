@@ -11,13 +11,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Install Python dependencies
-COPY requirements.txt .
+COPY server/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source
-COPY src/ ./src/
-COPY versions.json .
-COPY setup_admin.py .
+COPY server/src/ ./src/
+COPY dashboard/ ./dashboard/
+COPY server/versions.json .
+COPY server/setup_admin.py .
 
 # Create data directory for SQLite
 RUN mkdir -p /app/data

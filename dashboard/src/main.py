@@ -20,11 +20,20 @@ _STATIC_DIR = _BASE / "static"
 # Import server config + db
 import sys
 _server_root = Path(__file__).parent.parent.parent / "server"
+if not _server_root.exists():
+    # Docker layout: /app/src (server) and /app/dashboard
+    _server_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(_server_root.parent))
 
-from server.src import config as server_config
-from server.src.db import AsyncSessionLocal
-from server.src.models.database import Admin, User, APIKey, UsageLog, MonthlyUsage
+try:
+    from server.src import config as server_config
+    from server.src.db import AsyncSessionLocal
+    from server.src.models.database import Admin, User, APIKey, UsageLog, MonthlyUsage
+except ImportError:
+    # Docker: server code is at /app/src (same level)
+    from src import config as server_config
+    from src.db import AsyncSessionLocal
+    from src.models.database import Admin, User, APIKey, UsageLog, MonthlyUsage
 
 _serializer = URLSafeTimedSerializer(server_config.SECRET_KEY)
 _SESSION_COOKIE = "admin_session"

@@ -111,7 +111,10 @@ app.include_router(admin.router)
 # ── Dashboard sub-app ─────────────────────────────────────────────────────────
 try:
     import sys
-    dashboard_path = Path(__file__).parent.parent.parent / "dashboard" / "src"
+    # Try Docker path first (/app/dashboard), then local dev path
+    dashboard_path = Path(__file__).parent.parent / "dashboard" / "src"
+    if not dashboard_path.exists():
+        dashboard_path = Path(__file__).parent.parent.parent / "dashboard" / "src"
     sys.path.insert(0, str(dashboard_path.parent.parent))
     from dashboard.src.main import dashboard_app
     app.mount("/dashboard", dashboard_app)
